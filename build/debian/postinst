@@ -1,0 +1,32 @@
+#!/bin/bash
+# Post-installation script for Ajime Agent
+
+set -e
+
+# Create directories
+mkdir -p /etc/ajime
+mkdir -p /etc/ajime/cache
+mkdir -p /etc/ajime/cache/workflows
+mkdir -p /etc/ajime/cache/configs
+mkdir -p /etc/ajime/deployments
+mkdir -p /etc/ajime/logs
+mkdir -p /etc/ajime/tokens
+mkdir -p /var/log/ajime
+
+# Set permissions
+chmod 700 /etc/ajime
+chmod 700 /etc/ajime/tokens
+
+# Reload systemd
+systemctl daemon-reload
+
+echo ""
+echo "Ajime Agent installed successfully!"
+echo ""
+echo "To activate the agent, run:"
+echo "  ajime-agent --install --token=<your-activation-token>"
+echo ""
+echo "Then start the service:"
+echo "  systemctl enable ajime-agent"
+echo "  systemctl start ajime-agent"
+echo ""

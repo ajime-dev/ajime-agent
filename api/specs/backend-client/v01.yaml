@@ -1,0 +1,622 @@
+openapi: 3.0.3
+info:
+  title: Ajime Backend API (Agent Client)
+  version: 0.1.0
+  description: Backend API endpoints used by Ajime edge agents
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+servers:
+  - url: https://api.ajime.io/agent/{version}
+    description: Production backend
+    variables:
+      version:
+        default: v1
+        enum:
+          - v1
+  - url: http://localhost:8000/api/{version}
+    description: Local development
+    variables:
+      version:
+        default: v1
+        enum:
+          - v1
+
+paths:
+  /devices/activate:
+    post:
+      tags:
+        - Devices
+      summary: Activate Device
+      description: Activate a new device with an activation token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateDeviceRequest'
+      responses:
+        '200':
+          description: Device activated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivateDeviceResponse'
+        '400':
+          description: Invalid activation token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Activation token expired or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /devices/{deviceId}/token/refresh:
+    post:
+      tags:
+        - Devices
+      summary: Refresh Device Token
+      description: Refresh the device JWT token
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefreshResponse'
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /devices/{deviceId}/status:
+    put:
+      tags:
+        - Devices
+      summary: Update Device Status
+      description: Update device status and metrics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceStatusUpdate'
+      responses:
+        '200':
+          description: Status updated
+        '401':
+          description: Unauthorized
+
+  /devices/{deviceId}/sync:
+    post:
+      tags:
+        - Devices
+      summary: Sync Device
+      description: Sync device state with backend
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceSyncRequest'
+      responses:
+        '200':
+          description: Sync response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceSyncResponse'
+
+  /devices/{deviceId}/workflows:
+    get:
+      tags:
+        - Workflows
+      summary: Get Device Workflows
+      description: Get workflows assigned to this device
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of workflows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowListResponse'
+
+  /devices/{deviceId}/workflows/digests:
+    get:
+      tags:
+        - Workflows
+      summary: Get Workflow Digests
+      description: Get digests for change detection
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workflow digests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowDigest'
+
+  /devices/{deviceId}/workflows/sync:
+    post:
+      tags:
+        - Workflows
+      summary: Sync Workflows
+      description: Sync workflows with local digests
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkflowDigest'
+      responses:
+        '200':
+          description: Sync response with updated workflows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowSyncResponse'
+
+  /devices/{deviceId}/workflows/{workflowId}/status:
+    post:
+      tags:
+        - Workflows
+      summary: Report Workflow Status
+      description: Report workflow execution status
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowStatusReport'
+      responses:
+        '200':
+          description: Status reported
+
+  /devices/{deviceId}/telemetry:
+    post:
+      tags:
+        - Telemetry
+      summary: Report Telemetry
+      description: Report device telemetry data
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryData'
+      responses:
+        '200':
+          description: Telemetry received
+
+  /workflows/{workflowId}:
+    get:
+      tags:
+        - Workflows
+      summary: Get Workflow
+      description: Get full workflow details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workflow details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workflow'
+        '404':
+          description: Workflow not found
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ActivateDeviceRequest:
+      type: object
+      required:
+        - activation_token
+        - device_name
+      properties:
+        activation_token:
+          type: string
+        device_name:
+          type: string
+        device_type:
+          type: string
+
+    ActivateDeviceResponse:
+      type: object
+      required:
+        - device_id
+        - owner_id
+        - token
+        - device_name
+      properties:
+        device_id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        token:
+          type: string
+        device_name:
+          type: string
+
+    TokenRefreshResponse:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+
+    DeviceStatusUpdate:
+      type: object
+      required:
+        - status
+        - agent_version
+      properties:
+        status:
+          type: string
+          enum: [online, offline, connected, error]
+        agent_version:
+          type: string
+        last_sync_at:
+          type: integer
+          format: int64
+        metrics:
+          $ref: '#/components/schemas/TelemetryData'
+
+    DeviceSyncRequest:
+      type: object
+      required:
+        - agent_version
+        - local_workflow_digests
+      properties:
+        agent_version:
+          type: string
+        local_workflow_digests:
+          type: array
+          items:
+            type: string
+
+    DeviceSyncResponse:
+      type: object
+      required:
+        - device_id
+        - workflows_to_update
+        - workflows_to_remove
+        - settings_updated
+      properties:
+        device_id:
+          type: string
+        workflows_to_update:
+          type: array
+          items:
+            type: string
+        workflows_to_remove:
+          type: array
+          items:
+            type: string
+        settings_updated:
+          type: boolean
+
+    WorkflowListResponse:
+      type: object
+      required:
+        - workflows
+        - total
+      properties:
+        workflows:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowSummary'
+        total:
+          type: integer
+
+    WorkflowSummary:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        logic_hash:
+          type: string
+        updated_at:
+          type: string
+
+    WorkflowDigest:
+      type: object
+      required:
+        - workflow_id
+        - digest
+      properties:
+        workflow_id:
+          type: string
+        digest:
+          type: string
+        updated_at:
+          type: string
+
+    WorkflowSyncResponse:
+      type: object
+      required:
+        - workflows
+        - digests
+      properties:
+        workflows:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workflow'
+        digests:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowDigest'
+
+    WorkflowStatusReport:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+        error:
+          type: string
+        started_at:
+          type: string
+        finished_at:
+          type: string
+        node_statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeStatusReport'
+
+    NodeStatusReport:
+      type: object
+      required:
+        - node_id
+        - status
+      properties:
+        node_id:
+          type: string
+        status:
+          type: string
+        error:
+          type: string
+        outputs:
+          type: object
+
+    Workflow:
+      type: object
+      required:
+        - id
+        - name
+        - owner_id
+        - status
+        - graph_data
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        owner_id:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, paused, archived]
+        graph_data:
+          $ref: '#/components/schemas/GraphData'
+        logic_hash:
+          type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+
+    GraphData:
+      type: object
+      required:
+        - nodes
+        - edges
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Node'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/Edge'
+
+    Node:
+      type: object
+      required:
+        - id
+        - type
+        - data
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        label:
+          type: string
+        position:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+        data:
+          type: object
+
+    Edge:
+      type: object
+      required:
+        - id
+        - source
+        - target
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        sourceHandle:
+          type: string
+        target:
+          type: string
+        targetHandle:
+          type: string
+
+    TelemetryData:
+      type: object
+      properties:
+        cpu_usage:
+          type: number
+        memory_used:
+          type: integer
+          format: int64
+        memory_total:
+          type: integer
+          format: int64
+        memory_percent:
+          type: number
+        disk_used:
+          type: integer
+          format: int64
+        disk_total:
+          type: integer
+          format: int64
+        disk_percent:
+          type: number
+        uptime_secs:
+          type: integer
+          format: int64
+        hostname:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object

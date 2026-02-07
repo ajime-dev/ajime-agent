@@ -1,0 +1,73 @@
+[workspace]
+resolver = "2"
+members = [
+    "agent",
+    "libs/openapi-client",
+    "libs/openapi-server",
+]
+
+[workspace.package]
+edition = "2021"
+homepage = "https://ajime.io"
+rust-version = "1.84.0"
+version = "0.1.0"
+
+[workspace.metadata]
+git_commit = "dev"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.41", features = ["rt-multi-thread", "fs", "signal", "sync", "time", "macros"] }
+futures = "0.3"
+async-trait = "0.1"
+
+# Web framework
+axum = { version = "0.8" }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# MQTT
+rumqttc = "0.24"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Cryptography
+sha2 = "0.10"
+base64 = "0.22"
+jsonwebtoken = "9.3"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-appender = "0.2"
+
+# System info
+sysinfo = "0.37"
+
+# Utilities
+uuid = { version = "1.16", features = ["v4", "serde"] }
+thiserror = "2.0"
+anyhow = "1.0"
+secrecy = { version = "0.10", features = ["serde"] }
+
+# Hardware (optional features)
+# rppal = "0.18"  # Raspberry Pi - enable on ARM builds
+# v4l = "0.14"    # Camera - enable on Linux builds
+
+# OpenAPI libs
+openapi-client = { path = "libs/openapi-client" }
+openapi-server = { path = "libs/openapi-server" }
+
+[profile.release]
+debug = false
+opt-level = 3
+lto = true
+strip = true

@@ -1,0 +1,352 @@
+openapi: 3.0.3
+info:
+  title: Ajime Agent API
+  version: 0.1.0
+  description: Local API for Ajime edge agent
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+servers:
+  - url: http://localhost:8080/{version}
+    description: Local agent server
+    variables:
+      version:
+        default: v1
+        enum:
+          - v1
+paths:
+  /health:
+    get:
+      tags:
+        - Agent
+      summary: Health Check
+      description: Check the health status of the agent
+      responses:
+        '200':
+          description: Agent is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /version:
+    get:
+      tags:
+        - Agent
+      summary: Version Info
+      description: Get agent version information
+      responses:
+        '200':
+          description: Version information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionResponse'
+
+  /device:
+    get:
+      tags:
+        - Device
+      summary: Get Device Info
+      description: Get information about this device
+      responses:
+        '200':
+          description: Device information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceResponse'
+
+  /device/sync:
+    post:
+      tags:
+        - Device
+      summary: Trigger Sync
+      description: Manually trigger a sync with the backend
+      responses:
+        '200':
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncResponse'
+
+  /workflows/deployed:
+    get:
+      tags:
+        - Workflows
+      summary: List Deployed Workflows
+      description: Get list of workflows deployed on this device
+      responses:
+        '200':
+          description: List of deployed workflows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowListResponse'
+
+  /workflows/{workflowId}/start:
+    post:
+      tags:
+        - Workflows
+      summary: Start Workflow
+      description: Start execution of a deployed workflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workflow started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowControlResponse'
+        '404':
+          description: Workflow not found
+
+  /workflows/{workflowId}/stop:
+    post:
+      tags:
+        - Workflows
+      summary: Stop Workflow
+      description: Stop execution of a running workflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workflow stopped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowControlResponse'
+
+  /workflows/{workflowId}/status:
+    get:
+      tags:
+        - Workflows
+      summary: Get Workflow Status
+      description: Get the execution status of a workflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workflow status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowStatusResponse'
+
+  /telemetry/metrics:
+    get:
+      tags:
+        - Telemetry
+      summary: Get System Metrics
+      description: Get system metrics (CPU, memory, disk)
+      responses:
+        '200':
+          description: System metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - version
+      properties:
+        status:
+          type: string
+          example: healthy
+        service:
+          type: string
+          example: ajime-agent
+        version:
+          type: string
+          example: 0.1.0
+
+    VersionResponse:
+      type: object
+      required:
+        - version
+        - git_hash
+        - build_time
+      properties:
+        version:
+          type: string
+        git_hash:
+          type: string
+        build_time:
+          type: string
+
+    DeviceResponse:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - owner_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        device_type:
+          type: string
+        status:
+          type: string
+          enum: [online, offline, connected, error]
+        owner_id:
+          type: string
+          format: uuid
+
+    SyncResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    WorkflowListResponse:
+      type: object
+      required:
+        - workflows
+        - total
+      properties:
+        workflows:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowSummary'
+        total:
+          type: integer
+
+    WorkflowSummary:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum: [deployed, running, paused, stopped, error]
+
+    WorkflowControlResponse:
+      type: object
+      required:
+        - success
+        - workflow_id
+        - status
+      properties:
+        success:
+          type: boolean
+        workflow_id:
+          type: string
+        status:
+          type: string
+        message:
+          type: string
+
+    WorkflowStatusResponse:
+      type: object
+      required:
+        - workflow_id
+        - status
+      properties:
+        workflow_id:
+          type: string
+        status:
+          type: string
+          enum: [idle, running, paused, completed, error, cancelled]
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        error:
+          type: string
+        node_statuses:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeStatus'
+
+    NodeStatus:
+      type: object
+      required:
+        - node_id
+        - status
+      properties:
+        node_id:
+          type: string
+        status:
+          type: string
+        error:
+          type: string
+        outputs:
+          type: object
+
+    MetricsResponse:
+      type: object
+      required:
+        - cpu_usage
+        - memory_used
+        - memory_total
+        - memory_percent
+        - disk_used
+        - disk_total
+        - disk_percent
+        - uptime_secs
+        - hostname
+      properties:
+        cpu_usage:
+          type: number
+          format: float
+        memory_used:
+          type: integer
+          format: int64
+        memory_total:
+          type: integer
+          format: int64
+        memory_percent:
+          type: number
+          format: float
+        disk_used:
+          type: integer
+          format: int64
+        disk_total:
+          type: integer
+          format: int64
+        disk_percent:
+          type: number
+          format: float
+        uptime_secs:
+          type: integer
+          format: int64
+        hostname:
+          type: string

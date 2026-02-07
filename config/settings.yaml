@@ -1,0 +1,28 @@
+# Ajime Agent Configuration
+# This file is used as a template for /etc/ajime/settings.json
+
+# Logging configuration
+log_level: info  # trace, debug, info, warn, error
+
+# Backend API configuration
+backend:
+  base_url: https://api.ajime.io/agent/v1
+
+# MQTT broker configuration
+mqtt_broker:
+  host: mqtt.ajime.io
+  port: 8883
+  tls: true
+
+# Agent behavior
+is_persistent: true          # Run as a persistent service
+enable_socket_server: true   # Enable local HTTP server
+enable_mqtt_worker: true     # Enable MQTT for real-time commands
+enable_poller: true          # Enable polling for updates
+polling_interval_secs: 30    # Polling interval in seconds
+
+# Hardware configuration
+hardware:
+  enable_camera: false       # Enable camera support
+  enable_gpio: false         # Enable GPIO support
+  camera_device: /dev/video0 # Default camera device

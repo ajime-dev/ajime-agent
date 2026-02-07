@@ -1,0 +1,53 @@
+# GoReleaser configuration for Ajime Agent
+# Note: This is for reference - Rust builds use cargo, not Go
+
+version: 2
+
+project_name: ajime-agent
+
+before:
+  hooks:
+    - cargo build --release --target {{ .Target }}
+
+builds:
+  - id: ajime-agent
+    binary: ajime-agent
+    builder: prebuilt
+    prebuilt:
+      path: target/{{ .Target }}/release/ajime-agent
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+
+archives:
+  - id: ajime-agent
+    format: tar.gz
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    files:
+      - LICENSE
+      - config/settings.yaml
+      - scripts/install.sh
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+release:
+  github:
+    owner: ajime
+    name: ajime-agent
+  draft: true
+  prerelease: auto
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
