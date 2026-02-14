@@ -161,5 +161,5 @@ Ensure agent runs as root or has appropriate permissions for `/etc/ajime` direct
 ## Support
 
 - Documentation: https://docs.ajime.io/agent
-- Issues: https://github.com/ajime/ajigent/issues
+- Issues: https://github.com/ajime-dev/ajigent/issues
 - Email: support@ajime.io

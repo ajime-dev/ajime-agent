@@ -147,5 +147,5 @@ sudo systemctl daemon-reload
 
 For issues and questions:
 - Documentation: https://docs.ajime.io/agent
-- GitHub Issues: https://github.com/ajime/ajigent/issues
+- GitHub Issues: https://github.com/ajime-dev/ajigent/issues
 - Email: support@ajime.io
