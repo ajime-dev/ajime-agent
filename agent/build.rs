@@ -1,4 +1,4 @@
-//! Build script for ajime-agent
+//! Build script for ajigent
 //! Captures build-time metadata for version info
 
 use chrono::Utc;

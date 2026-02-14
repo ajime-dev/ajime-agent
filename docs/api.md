@@ -21,7 +21,7 @@ GET /health
 ```json
 {
   "status": "healthy",
-  "service": "ajime-agent",
+  "service": "ajigent",
   "version": "0.1.0"
 }
 ```

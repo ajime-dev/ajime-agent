@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::deploy::fsm::FsmSettings;
 use crate::storage::layout::StorageLayout;
-use crate::workers::{mqtt, poller, token_refresh};
+use crate::workers::{mqtt, poller, token_refresh, deployer};
 
 /// Main application options
 #[derive(Debug, Clone)]
@@ -27,6 +27,9 @@ pub struct AppOptions {
     /// Enable polling worker
     pub enable_poller: bool,
 
+    /// Enable deployer worker
+    pub enable_deployer: bool,
+
     /// Server configuration
     pub server: ServerOptions,
 
@@ -35,6 +38,9 @@ pub struct AppOptions {
 
     /// Poller worker options
     pub poller: poller::Options,
+
+    /// Deployer worker options
+    pub deployer: deployer::Options,
 
     /// Token refresh worker options
     pub token_refresh_worker: token_refresh::Options,
@@ -52,9 +58,11 @@ impl Default for AppOptions {
             enable_socket_server: true,
             enable_mqtt_worker: true,
             enable_poller: true,
+            enable_deployer: true,
             server: ServerOptions::default(),
             mqtt_worker: mqtt::Options::default(),
             poller: poller::Options::default(),
+            deployer: deployer::Options::default(),
             token_refresh_worker: token_refresh::Options::default(),
             fsm_settings: FsmSettings::default(),
         }

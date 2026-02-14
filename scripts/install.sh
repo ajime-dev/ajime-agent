@@ -168,8 +168,8 @@ check_root() {
 download_agent() {
     log_info "Downloading Ajime Agent ${AJIME_VERSION} for ${PLATFORM}..."
     
-    local download_url="${AJIME_DOWNLOAD_URL}/ajime-agent-${AJIME_VERSION}-${PLATFORM}"
-    local temp_file="/tmp/ajime-agent-download"
+    local download_url="${AJIME_DOWNLOAD_URL}/ajigent-${AJIME_VERSION}-${PLATFORM}"
+    local temp_file="/tmp/ajigent-download"
     
     # Download binary
     if command -v curl &> /dev/null; then
@@ -195,9 +195,9 @@ download_agent() {
     
     # Make executable and move to install dir
     chmod +x "$temp_file"
-    mv "$temp_file" "${AJIME_INSTALL_DIR}/ajime-agent"
-    
-    log_success "Agent binary installed to ${AJIME_INSTALL_DIR}/ajime-agent"
+    mv "$temp_file" "${AJIME_INSTALL_DIR}/ajigent"
+
+    log_success "Agent binary installed to ${AJIME_INSTALL_DIR}/ajigent"
 }
 
 # Create directories
@@ -224,9 +224,9 @@ create_directories() {
 install_systemd_service() {
     log_info "Installing systemd service..."
     
-    cat > /lib/systemd/system/ajime-agent.service << 'EOF'
+    cat > /lib/systemd/system/ajigent.service << 'EOF'
 [Unit]
-Description=Ajime Edge Agent
+Description=Ajigent Edge Agent
 Documentation=https://docs.ajime.io/agent
 After=network-online.target
 Wants=network-online.target
@@ -235,12 +235,12 @@ Wants=network-online.target
 Type=simple
 User=root
 Group=root
-ExecStart=/usr/local/bin/ajime-agent
+ExecStart=/usr/local/bin/ajigent
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=ajime-agent
+SyslogIdentifier=ajigent
 
 # Security hardening
 NoNewPrivileges=true
@@ -279,7 +279,7 @@ activate_agent() {
     args="$args --type=$DEVICE_TYPE"
     
     # Run activation
-    ${AJIME_INSTALL_DIR}/ajime-agent $args
+    ${AJIME_INSTALL_DIR}/ajigent $args
     
     if [ $? -eq 0 ]; then
         log_success "Agent activated successfully"
@@ -291,18 +291,18 @@ activate_agent() {
 
 # Start the service
 start_service() {
-    log_info "Starting Ajime Agent service..."
+    log_info "Starting Ajigent service..."
     
-    systemctl enable ajime-agent
-    systemctl start ajime-agent
+    systemctl enable ajigent
+    systemctl start ajigent
     
     # Wait a moment and check status
     sleep 2
     
-    if systemctl is-active --quiet ajime-agent; then
-        log_success "Ajime Agent is running"
+    if systemctl is-active --quiet ajigent; then
+        log_success "Ajigent is running"
     else
-        log_warn "Agent may not have started correctly. Check: journalctl -u ajime-agent"
+        log_warn "Agent may not have started correctly. Check: journalctl -u ajigent"
     fi
 }
 
@@ -310,7 +310,7 @@ start_service() {
 main() {
     echo ""
     echo "======================================"
-    echo "  Ajime Agent Installer"
+    echo "  Ajigent Installer"
     echo "======================================"
     echo ""
     
@@ -334,10 +334,10 @@ main() {
     echo "======================================"
     echo ""
     echo "Useful commands:"
-    echo "  Check status:  systemctl status ajime-agent"
-    echo "  View logs:     journalctl -u ajime-agent -f"
-    echo "  Restart:       systemctl restart ajime-agent"
-    echo "  Stop:          systemctl stop ajime-agent"
+    echo "  Check status:  systemctl status ajigent"
+    echo "  View logs:     journalctl -u ajigent -f"
+    echo "  Restart:       systemctl restart ajigent"
+    echo "  Stop:          systemctl stop ajigent"
     echo ""
 }
 

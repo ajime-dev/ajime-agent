@@ -1,5 +1,5 @@
 [Unit]
-Description=Ajime Edge Agent
+Description=Ajigent Edge Agent
 Documentation=https://docs.ajime.io/agent
 After=network-online.target
 Wants=network-online.target
@@ -8,12 +8,12 @@ Wants=network-online.target
 Type=simple
 User=root
 Group=root
-ExecStart=/usr/local/bin/ajime-agent
+ExecStart=/usr/local/bin/ajigent
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=ajime-agent
+SyslogIdentifier=ajigent
 
 # Security hardening
 NoNewPrivileges=true

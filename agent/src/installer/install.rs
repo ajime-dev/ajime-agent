@@ -17,7 +17,7 @@ pub async fn install(cli_args: &HashMap<String, String>) {
         Ok(_) => {
             info!("Installation successful");
             println!("\n[SUCCESS] Ajime Agent installed and activated successfully!");
-            println!("Start the agent with: systemctl start ajime-agent");
+            println!("Start the agent with: systemctl start ajigent");
         }
         Err(e) => {
             error!("Installation failed: {:?}", e);

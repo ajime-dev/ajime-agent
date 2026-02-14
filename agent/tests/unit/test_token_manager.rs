@@ -1,6 +1,6 @@
 //! Token manager unit tests
 
-use ajime_agent::authn::device_token::DeviceToken;
+use ajigent::authn::device_token::DeviceToken;
 
 #[test]
 fn test_token_parsing() {

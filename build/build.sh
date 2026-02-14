@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build script for Ajime Agent
+# Build script for Ajigent
 
 set -e
 
@@ -11,7 +11,7 @@ cd "$PROJECT_DIR"
 # Default target
 TARGET="${1:-native}"
 
-echo "Building Ajime Agent..."
+echo "Building Ajigent..."
 echo "Target: $TARGET"
 
 case "$TARGET" in
@@ -23,7 +23,7 @@ case "$TARGET" in
         cargo build --release --target aarch64-unknown-linux-gnu
         # Strip binary
         if command -v aarch64-linux-gnu-strip &> /dev/null; then
-            aarch64-linux-gnu-strip target/aarch64-unknown-linux-gnu/release/ajime-agent
+            aarch64-linux-gnu-strip target/aarch64-unknown-linux-gnu/release/ajigent
         fi
         ;;
     armv7|arm32|raspberry-pi-32)
@@ -31,13 +31,13 @@ case "$TARGET" in
         cargo build --release --target armv7-unknown-linux-gnueabihf
         # Strip binary
         if command -v arm-linux-gnueabihf-strip &> /dev/null; then
-            arm-linux-gnueabihf-strip target/armv7-unknown-linux-gnueabihf/release/ajime-agent
+            arm-linux-gnueabihf-strip target/armv7-unknown-linux-gnueabihf/release/ajigent
         fi
         ;;
     x86_64|amd64)
         echo "Building for x86_64-unknown-linux-gnu..."
         cargo build --release --target x86_64-unknown-linux-gnu
-        strip target/x86_64-unknown-linux-gnu/release/ajime-agent
+        strip target/x86_64-unknown-linux-gnu/release/ajigent
         ;;
     all)
         echo "Building for all targets..."

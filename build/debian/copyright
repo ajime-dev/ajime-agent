@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: ajime-agent
+Upstream-Name: ajigent
 Upstream-Contact: Ajime <support@ajime.io>
-Source: https://github.com/ajime/ajime-agent
+Source: https://github.com/ajime/ajigent
 
 Files: *
 Copyright: 2025 Ajime, Inc.

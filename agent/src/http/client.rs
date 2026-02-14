@@ -117,6 +117,37 @@ impl HttpClient {
         Ok(body)
     }
 
+    /// Make a PATCH request
+    pub async fn patch<T: DeserializeOwned, B: Serialize>(
+        &self,
+        path: &str,
+        token: &str,
+        body: &B,
+    ) -> Result<T, AgentError> {
+        let url = format!("{}{}", self.base_url, path);
+        debug!("PATCH {}", url);
+
+        let response = self
+            .client
+            .patch(&url)
+            .header(header::AUTHORIZATION, format!("Bearer {}", token))
+            .json(body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            error!("HTTP PATCH failed: {} - {}", status, body);
+            return Err(AgentError::HttpError(reqwest::Error::from(
+                std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", status, body)),
+            )));
+        }
+
+        let body = response.json().await?;
+        Ok(body)
+    }
+
     /// Activate a device with an activation token
     pub async fn activate_device(
         &self,

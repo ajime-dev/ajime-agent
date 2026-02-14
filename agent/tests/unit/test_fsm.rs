@@ -1,6 +1,6 @@
 //! FSM unit tests
 
-use ajime_agent::deploy::fsm::{DeploymentEvent, DeploymentFsm, DeploymentState};
+use ajigent::deploy::fsm::{DeploymentEvent, DeploymentFsm, DeploymentState};
 
 #[test]
 fn test_fsm_initial_state() {

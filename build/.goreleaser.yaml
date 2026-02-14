@@ -3,18 +3,18 @@
 
 version: 2
 
-project_name: ajime-agent
+project_name: ajigent
 
 before:
   hooks:
     - cargo build --release --target {{ .Target }}
 
 builds:
-  - id: ajime-agent
-    binary: ajime-agent
+  - id: ajigent
+    binary: ajigent
     builder: prebuilt
     prebuilt:
-      path: target/{{ .Target }}/release/ajime-agent
+      path: target/{{ .Target }}/release/ajigent
     goos:
       - linux
     goarch:
@@ -25,7 +25,7 @@ builds:
       - "7"
 
 archives:
-  - id: ajime-agent
+  - id: ajigent
     format: tar.gz
     name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     files:
@@ -40,7 +40,7 @@ checksum:
 release:
   github:
     owner: ajime
-    name: ajime-agent
+    name: ajigent
   draft: true
   prerelease: auto
 

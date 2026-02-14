@@ -175,7 +175,7 @@ components:
           example: healthy
         service:
           type: string
-          example: ajime-agent
+          example: ajigent
         version:
           type: string
           example: 0.1.0

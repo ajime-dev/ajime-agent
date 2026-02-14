@@ -6,16 +6,16 @@
 use std::collections::HashMap;
 use std::env;
 
-use ajime_agent::app::options::{AppOptions, LifecycleOptions};
-use ajime_agent::app::run::run;
-use ajime_agent::installer::install::install;
-use ajime_agent::logs::{init_logging, LogOptions};
-use ajime_agent::mqtt::client::MqttAddress;
-use ajime_agent::storage::device::assert_activated;
-use ajime_agent::storage::layout::StorageLayout;
-use ajime_agent::storage::settings::Settings;
-use ajime_agent::utils::version_info;
-use ajime_agent::workers::mqtt;
+use ajigent::app::options::{AppOptions, LifecycleOptions};
+use ajigent::app::run::run;
+use ajigent::installer::install::install;
+use ajigent::logs::{init_logging, LogOptions};
+use ajigent::mqtt::client::MqttAddress;
+use ajigent::storage::device::assert_activated;
+use ajigent::storage::layout::StorageLayout;
+use ajigent::storage::settings::Settings;
+use ajigent::utils::version_info;
+use ajigent::workers::mqtt;
 
 use tokio::signal::unix::signal;
 use tracing::{error, info};
@@ -57,7 +57,7 @@ async fn main() {
     let device_file = layout.device_file();
     if let Err(e) = assert_activated(&device_file).await {
         error!("Device is not yet activated: {}", e);
-        error!("Run: ajime-agent --install --token=<activation_token>");
+        error!("Run: ajigent --install --token=<activation_token>");
         return;
     }
 

@@ -15,14 +15,14 @@ curl -sSL https://install.ajime.io | sudo bash -s -- --token=<your-activation-to
 ### Manual Installation
 
 1. Download the appropriate binary for your platform:
-   - `ajime-agent-linux-aarch64` for Raspberry Pi 64-bit, Jetson Nano
-   - `ajime-agent-linux-armv7` for Raspberry Pi 32-bit
-   - `ajime-agent-linux-x86_64` for x86_64 Linux
+   - `ajigent-linux-aarch64` for Raspberry Pi 64-bit, Jetson Nano
+   - `ajigent-linux-armv7` for Raspberry Pi 32-bit
+   - `ajigent-linux-x86_64` for x86_64 Linux
 
 2. Install the binary:
    ```bash
-   sudo mv ajime-agent-linux-* /usr/local/bin/ajime-agent
-   sudo chmod +x /usr/local/bin/ajime-agent
+   sudo mv ajigent-linux-* /usr/local/bin/ajigent
+   sudo chmod +x /usr/local/bin/ajigent
    ```
 
 3. Create configuration directories:
@@ -33,13 +33,13 @@ curl -sSL https://install.ajime.io | sudo bash -s -- --token=<your-activation-to
 
 4. Activate the agent:
    ```bash
-   sudo ajime-agent --install --token=<your-activation-token>
+   sudo ajigent --install --token=<your-activation-token>
    ```
 
 5. Install and start the systemd service:
    ```bash
-   sudo systemctl enable ajime-agent
-   sudo systemctl start ajime-agent
+   sudo systemctl enable ajigent
+   sudo systemctl start ajigent
    ```
 
 ## Getting an Activation Token
@@ -82,19 +82,19 @@ The agent configuration is stored in `/etc/ajime/settings.json`:
 
 ```bash
 # Check agent status
-systemctl status ajime-agent
+systemctl status ajigent
 
 # View logs
-journalctl -u ajime-agent -f
+journalctl -u ajigent -f
 
 # Restart agent
-systemctl restart ajime-agent
+systemctl restart ajigent
 
 # Stop agent
-systemctl stop ajime-agent
+systemctl stop ajigent
 
 # Check agent version
-ajime-agent --version
+ajigent --version
 
 # Manual sync
 curl http://localhost:8080/device/sync -X POST
@@ -117,7 +117,7 @@ The agent exposes a local HTTP API on port 8080:
 
 ### Agent won't start
 
-1. Check logs: `journalctl -u ajime-agent -n 50`
+1. Check logs: `journalctl -u ajigent -n 50`
 2. Verify device file exists: `ls -la /etc/ajime/device.json`
 3. Check settings file: `cat /etc/ajime/settings.json`
 
@@ -135,10 +135,10 @@ The agent exposes a local HTTP API on port 8080:
 ## Uninstallation
 
 ```bash
-sudo systemctl stop ajime-agent
-sudo systemctl disable ajime-agent
-sudo rm /lib/systemd/system/ajime-agent.service
-sudo rm /usr/local/bin/ajime-agent
+sudo systemctl stop ajigent
+sudo systemctl disable ajigent
+sudo rm /lib/systemd/system/ajigent.service
+sudo rm /usr/local/bin/ajigent
 sudo rm -rf /etc/ajime  # Optional: remove configuration
 sudo systemctl daemon-reload
 ```
@@ -147,5 +147,5 @@ sudo systemctl daemon-reload
 
 For issues and questions:
 - Documentation: https://docs.ajime.io/agent
-- GitHub Issues: https://github.com/ajime/ajime-agent/issues
+- GitHub Issues: https://github.com/ajime/ajigent/issues
 - Email: support@ajime.io

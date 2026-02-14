@@ -1,5 +1,5 @@
 #!/bin/bash
-# Release script for Ajime Agent
+# Release script for Ajigent
 
 set -e
 
@@ -11,7 +11,7 @@ cd "$PROJECT_DIR"
 VERSION="${1:-$(grep '^version' Cargo.toml | head -1 | cut -d'"' -f2)}"
 RELEASE_DIR="$PROJECT_DIR/release"
 
-echo "Building Ajime Agent v${VERSION}..."
+echo "Building Ajigent v${VERSION}..."
 echo ""
 
 # Clean release directory
@@ -30,23 +30,23 @@ cargo build --release --target x86_64-unknown-linux-gnu 2>/dev/null || cargo bui
 
 # Copy binaries to release directory
 for target in aarch64-unknown-linux-gnu armv7-unknown-linux-gnueabihf x86_64-unknown-linux-gnu; do
-    binary="target/${target}/release/ajime-agent"
+    binary="target/${target}/release/ajigent"
     if [ -f "$binary" ]; then
         arch=$(echo "$target" | cut -d'-' -f1)
-        cp "$binary" "$RELEASE_DIR/ajime-agent-${VERSION}-linux-${arch}"
-        echo "Created: ajime-agent-${VERSION}-linux-${arch}"
+        cp "$binary" "$RELEASE_DIR/ajigent-${VERSION}-linux-${arch}"
+        echo "Created: ajigent-${VERSION}-linux-${arch}"
     fi
 done
 
 # Also copy native build if exists
-if [ -f "target/release/ajime-agent" ]; then
-    cp "target/release/ajime-agent" "$RELEASE_DIR/ajime-agent-${VERSION}-native"
-    echo "Created: ajime-agent-${VERSION}-native"
+if [ -f "target/release/ajigent" ]; then
+    cp "target/release/ajigent" "$RELEASE_DIR/ajigent-${VERSION}-native"
+    echo "Created: ajigent-${VERSION}-native"
 fi
 
 # Generate checksums
 cd "$RELEASE_DIR"
-sha256sum ajime-agent-* > checksums.sha256
+sha256sum ajigent-* > checksums.sha256
 echo ""
 echo "Checksums:"
 cat checksums.sha256

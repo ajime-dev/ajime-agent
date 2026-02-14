@@ -1,7 +1,7 @@
 //! Cache unit tests
 
-use ajime_agent::cache::workflow::WorkflowCache;
-use ajime_agent::models::workflow::{GraphData, Workflow, WorkflowStatus};
+use ajigent::cache::workflow::WorkflowCache;
+use ajigent::models::workflow::{GraphData, Workflow, WorkflowStatus};
 
 fn create_test_workflow(id: &str, name: &str) -> Workflow {
     Workflow {

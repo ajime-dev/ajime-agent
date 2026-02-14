@@ -16,7 +16,7 @@ use crate::errors::AgentError;
 use crate::http::client::HttpClient;
 use crate::server::serve::serve;
 use crate::server::state::ServerState;
-use crate::workers::{mqtt, poller, token_refresh};
+use crate::workers::{mqtt, poller, token_refresh, deployer};
 
 /// Run the Ajime agent
 pub async fn run(
@@ -152,6 +152,16 @@ async fn init(
         .await?;
     }
 
+    if options.enable_deployer {
+        init_deployer_worker(
+            options.deployer.clone(),
+            app_state.clone(),
+            shutdown_manager,
+            shutdown_tx.subscribe(),
+        )
+        .await?;
+    }
+
     Ok(app_state)
 }
 
@@ -272,6 +282,36 @@ async fn init_mqtt_worker(
     Ok(())
 }
 
+async fn init_deployer_worker(
+    options: deployer::Options,
+    app_state: Arc<AppState>,
+    shutdown_manager: &mut ShutdownManager,
+    mut shutdown_rx: broadcast::Receiver<()>,
+) -> Result<(), AgentError> {
+    info!("Initializing deployer worker...");
+
+    let http_client = app_state.http_client.clone();
+    let token_mngr = app_state.token_mngr.clone();
+    let device_file = app_state.device_file.clone();
+
+    let deployer_handle = tokio::spawn(async move {
+        deployer::run(
+            &options,
+            http_client,
+            token_mngr,
+            device_file,
+            tokio::time::sleep,
+            Box::pin(async move {
+                let _ = shutdown_rx.recv().await;
+            }),
+        )
+        .await;
+    });
+
+    shutdown_manager.with_deployer_worker_handle(deployer_handle)?;
+    Ok(())
+}
+
 async fn init_socket_server(
     options: &AppOptions,
     app_state: Arc<AppState>,
@@ -312,6 +352,7 @@ struct ShutdownManager {
     socket_server_handle: Option<JoinHandle<Result<(), AgentError>>>,
     poller_worker_handle: Option<JoinHandle<()>>,
     mqtt_worker_handle: Option<JoinHandle<()>>,
+    deployer_worker_handle: Option<JoinHandle<()>>,
     token_refresh_worker_handle: Option<JoinHandle<()>>,
 }
 
@@ -324,6 +365,7 @@ impl ShutdownManager {
             socket_server_handle: None,
             poller_worker_handle: None,
             mqtt_worker_handle: None,
+            deployer_worker_handle: None,
             token_refresh_worker_handle: None,
         }
     }
@@ -364,6 +406,14 @@ impl ShutdownManager {
             return Err(AgentError::ShutdownError("mqtt_handle already set".to_string()));
         }
         self.mqtt_worker_handle = Some(handle);
+        Ok(())
+    }
+
+    pub fn with_deployer_worker_handle(&mut self, handle: JoinHandle<()>) -> Result<(), AgentError> {
+        if self.deployer_worker_handle.is_some() {
+            return Err(AgentError::ShutdownError("deployer_handle already set".to_string()));
+        }
+        self.deployer_worker_handle = Some(handle);
         Ok(())
     }
 
@@ -416,7 +466,12 @@ impl ShutdownManager {
             handle.await.map_err(|e| AgentError::ShutdownError(e.to_string()))?;
         }
 
-        // 4. Socket server
+        // 4. Deployer worker
+        if let Some(handle) = self.deployer_worker_handle.take() {
+            handle.await.map_err(|e| AgentError::ShutdownError(e.to_string()))?;
+        }
+
+        // 5. Socket server
         if let Some(handle) = self.socket_server_handle.take() {
             handle.await.map_err(|e| AgentError::ShutdownError(e.to_string()))??;
         }

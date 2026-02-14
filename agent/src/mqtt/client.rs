@@ -38,7 +38,7 @@ impl MqttClient {
         device_id: &str,
         token: &str,
     ) -> Result<Self, AgentError> {
-        let client_id = format!("ajime-agent-{}", device_id);
+        let client_id = format!("ajigent-{}", device_id);
 
         let mut options = MqttOptions::new(&client_id, &address.host, address.port);
         options.set_keep_alive(std::time::Duration::from_secs(30));

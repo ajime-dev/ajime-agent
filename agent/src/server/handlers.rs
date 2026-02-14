@@ -29,7 +29,7 @@ pub async fn health_handler() -> impl IntoResponse {
     let version = version_info();
     Json(HealthResponse {
         status: "healthy".to_string(),
-        service: "ajime-agent".to_string(),
+        service: "ajigent".to_string(),
         version: version.version,
     })
 }
