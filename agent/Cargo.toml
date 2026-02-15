@@ -25,6 +25,9 @@ tower-http = { workspace = true }
 
 # HTTP client
 reqwest = { workspace = true }
+http = { workspace = true }
+url = { workspace = true }
+tokio-tungstenite = { workspace = true }
 
 # MQTT
 rumqttc = { workspace = true }
