@@ -43,14 +43,15 @@ jobs:
       
       - name: Rename binary
         run: |
-          cp agent/target/${{ matrix.rust_target }}/release/${{ env.BINARY_NAME }} \
+          cp target/${{ matrix.rust_target }}/release/${{ env.BINARY_NAME }} \
              ${{ env.BINARY_NAME }}-${{ matrix.platform_name }}
+        working-directory: agent
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-${{ matrix.platform_name }}
-          path: ${{ env.BINARY_NAME }}-${{ matrix.platform_name }}
+          path: agent/${{ env.BINARY_NAME }}-${{ matrix.platform_name }}
           if-no-files-found: error
 
   release:
