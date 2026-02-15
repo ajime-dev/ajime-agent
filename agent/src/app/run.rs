@@ -16,7 +16,7 @@ use crate::errors::AgentError;
 use crate::http::client::HttpClient;
 use crate::server::serve::serve;
 use crate::server::state::ServerState;
-use crate::workers::{mqtt, poller, token_refresh, deployer};
+use crate::workers::{mqtt, poller, token_refresh, deployer, relay};
 
 /// Run the Ajime agent
 pub async fn run(
@@ -156,6 +156,17 @@ async fn init(
         init_deployer_worker(
             options.deployer.clone(),
             app_state.clone(),
+            shutdown_manager,
+            shutdown_tx.subscribe(),
+        )
+        .await?;
+    }
+
+    if options.enable_relay_worker {
+        init_relay_worker(
+            options.relay_worker.clone(),
+            app_state.clone(),
+            options.backend_base_url.clone(),
             shutdown_manager,
             shutdown_tx.subscribe(),
         )
@@ -312,6 +323,33 @@ async fn init_deployer_worker(
     Ok(())
 }
 
+async fn init_relay_worker(
+    options: relay::Options,
+    app_state: Arc<AppState>,
+    backend_url: String,
+    shutdown_manager: &mut ShutdownManager,
+    mut shutdown_rx: broadcast::Receiver<()>,
+) -> Result<(), AgentError> {
+    info!("Initializing relay worker...");
+
+    let token_mngr = app_state.token_mngr.clone();
+
+    let relay_handle = tokio::spawn(async move {
+        relay::run(
+            &options,
+            token_mngr,
+            backend_url,
+            Box::pin(async move {
+                let _ = shutdown_rx.recv().await;
+            }),
+        )
+        .await;
+    });
+
+    shutdown_manager.with_relay_worker_handle(relay_handle)?;
+    Ok(())
+}
+
 async fn init_socket_server(
     options: &AppOptions,
     app_state: Arc<AppState>,
@@ -353,6 +391,7 @@ struct ShutdownManager {
     poller_worker_handle: Option<JoinHandle<()>>,
     mqtt_worker_handle: Option<JoinHandle<()>>,
     deployer_worker_handle: Option<JoinHandle<()>>,
+    relay_worker_handle: Option<JoinHandle<()>>,
     token_refresh_worker_handle: Option<JoinHandle<()>>,
 }
 
@@ -366,6 +405,7 @@ impl ShutdownManager {
             poller_worker_handle: None,
             mqtt_worker_handle: None,
             deployer_worker_handle: None,
+            relay_worker_handle: None,
             token_refresh_worker_handle: None,
         }
     }
@@ -414,6 +454,14 @@ impl ShutdownManager {
             return Err(AgentError::ShutdownError("deployer_handle already set".to_string()));
         }
         self.deployer_worker_handle = Some(handle);
+        Ok(())
+    }
+
+    pub fn with_relay_worker_handle(&mut self, handle: JoinHandle<()>) -> Result<(), AgentError> {
+        if self.relay_worker_handle.is_some() {
+            return Err(AgentError::ShutdownError("relay_handle already set".to_string()));
+        }
+        self.relay_worker_handle = Some(handle);
         Ok(())
     }
 
@@ -468,6 +516,11 @@ impl ShutdownManager {
 
         // 4. Deployer worker
         if let Some(handle) = self.deployer_worker_handle.take() {
+            handle.await.map_err(|e| AgentError::ShutdownError(e.to_string()))?;
+        }
+
+        // 4.5. Relay worker
+        if let Some(handle) = self.relay_worker_handle.take() {
             handle.await.map_err(|e| AgentError::ShutdownError(e.to_string()))?;
         }
 

@@ -3,3 +3,4 @@
 pub mod client;
 pub mod devices;
 pub mod workflows;
+pub mod deployments;

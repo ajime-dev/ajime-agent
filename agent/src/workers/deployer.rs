@@ -6,7 +6,6 @@ use std::time::Duration;
 use std::sync::Arc;
 
 use tracing::{debug, error, info};
-use serde_json::Value;
 
 use crate::errors::AgentError;
 use crate::http::client::HttpClient;
@@ -35,7 +34,7 @@ pub async fn run<S, F>(
     options: &Options,
     http_client: Arc<HttpClient>,
     token_mngr: Arc<TokenManager>,
-    device_file: Arc<DeviceFile>,
+    _device_file: Arc<DeviceFile>,
     sleep_fn: S,
     mut shutdown_signal: Pin<Box<dyn Future<Output = ()> + Send>>,
 ) where
@@ -56,33 +55,31 @@ pub async fn run<S, F>(
             }
         }
 
-        let device_id = match device_file.get_device_id().await {
+        let device_id = match token_mngr.get_device_id().await {
             Ok(id) => id,
             Err(_) => continue,
         };
 
         let token = match token_mngr.get_token().await {
-            Ok(t) => t.token,
+            Ok(t) => t.raw,
             Err(_) => continue,
         };
 
         debug!("Checking for pending deployments...");
 
         // 1. Poll for pending deployments
-        let path = format!("/api/v1/agent/devices/{}/deployments", device_id);
-        let result: Result<Value, AgentError> = http_client.get(&path, &token).await;
-        
-        if let Ok(data) = result {
-            if let Some(deployments) = data.get("deployments").and_then(|v| v.as_array()) {
-                for dep_val in deployments {
-                    if let Ok(deployment) = serde_json::from_value::<Deployment>(dep_val.clone()) {
-                        info!("Received deployment task: {} ({})", deployment.id, deployment.deployment_type);
-                        
-                        if let Err(e) = execute_deployment(deployment, http_client.clone(), &token).await {
-                            error!("Deployment failed: {}", e);
-                        }
+        match http_client.get_pending_deployments(&device_id, &token).await {
+            Ok(deployments) => {
+                for deployment in deployments {
+                    info!("Received deployment task: {} ({})", deployment.id, deployment.deployment_type);
+                    
+                    if let Err(e) = execute_deployment(deployment, http_client.clone(), &token).await {
+                        error!("Deployment failed: {}", e);
                     }
                 }
+            }
+            Err(e) => {
+                error!("Failed to poll for deployments: {}", e);
             }
         }
     }
@@ -94,17 +91,15 @@ async fn execute_deployment(
     token: &str
 ) -> Result<(), AgentError> {
     let id = deployment.id.clone();
-    let status_path = format!("/api/v1/deployments/{}/status", id);
-    let logs_path = format!("/api/v1/deployments/{}/logs", id);
 
     // 1. Mark as in_progress
-    let _ = http_client.patch::<Value, _>(&status_path, token, &DeploymentStatusUpdate {
+    let _ = http_client.update_deployment_status(&id, token, DeploymentStatusUpdate {
         status: "in_progress".to_string(),
         error_message: None,
     }).await;
 
     // 2. Stream initial log
-    let _ = http_client.post::<Value, _>(&logs_path, token, &DeploymentLog {
+    let _ = http_client.send_deployment_log(&id, token, DeploymentLog {
         level: "info".to_string(),
         message: format!("Starting {} deployment...", deployment.deployment_type),
     }).await;
@@ -134,24 +129,24 @@ async fn execute_deployment(
     // 4. Update final status
     match result {
         Ok(_) => {
-            let _ = http_client.patch::<Value, _>(&status_path, token, &DeploymentStatusUpdate {
+            let _ = http_client.update_deployment_status(&id, token, DeploymentStatusUpdate {
                 status: "success".to_string(),
                 error_message: None,
             }).await;
             
-            let _ = http_client.post::<Value, _>(&logs_path, token, &DeploymentLog {
+            let _ = http_client.send_deployment_log(&id, token, DeploymentLog {
                 level: "info".to_string(),
                 message: "Deployment completed successfully!".to_string(),
             }).await;
             Ok(())
         }
         Err(e) => {
-            let _ = http_client.patch::<Value, _>(&status_path, token, &DeploymentStatusUpdate {
+            let _ = http_client.update_deployment_status(&id, token, DeploymentStatusUpdate {
                 status: "failed".to_string(),
                 error_message: Some(e.to_string()),
             }).await;
             
-            let _ = http_client.post::<Value, _>(&logs_path, token, &DeploymentLog {
+            let _ = http_client.send_deployment_log(&id, token, DeploymentLog {
                 level: "error".to_string(),
                 message: format!("Deployment failed: {}", e),
             }).await;

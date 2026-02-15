@@ -1,0 +1,22 @@
+# CI/CD Configuration for Ajime Agent
+# Parametric build configuration referenced by GitHub Actions workflows
+
+# Binary configuration
+binary_name: ajigent
+
+# Rust toolchain version (must match workspace Cargo.toml)
+rust_version: "1.84.0"
+
+# Build targets for cross-compilation
+targets:
+  - rust_target: x86_64-unknown-linux-gnu
+    platform_name: linux-x86_64
+    
+  - rust_target: aarch64-unknown-linux-gnu
+    platform_name: linux-arm64
+    
+  - rust_target: armv7-unknown-linux-gnueabihf
+    platform_name: linux-armv7
+
+# GitHub release configuration
+github_repo: ajime-dev/ajime-agent

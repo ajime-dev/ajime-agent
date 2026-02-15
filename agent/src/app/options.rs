@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::deploy::fsm::FsmSettings;
 use crate::storage::layout::StorageLayout;
-use crate::workers::{mqtt, poller, token_refresh, deployer};
+use crate::workers::{mqtt, poller, token_refresh, deployer, relay};
 
 /// Main application options
 #[derive(Debug, Clone)]
@@ -24,6 +24,9 @@ pub struct AppOptions {
     /// Enable MQTT worker
     pub enable_mqtt_worker: bool,
 
+    /// Enable WebSocket Relay worker
+    pub enable_relay_worker: bool,
+
     /// Enable polling worker
     pub enable_poller: bool,
 
@@ -35,6 +38,9 @@ pub struct AppOptions {
 
     /// MQTT worker options
     pub mqtt_worker: mqtt::Options,
+
+    /// Relay worker options
+    pub relay_worker: relay::Options,
 
     /// Poller worker options
     pub poller: poller::Options,
@@ -57,10 +63,12 @@ impl Default for AppOptions {
             storage: StorageOptions::default(),
             enable_socket_server: true,
             enable_mqtt_worker: true,
+            enable_relay_worker: true,
             enable_poller: true,
             enable_deployer: true,
             server: ServerOptions::default(),
             mqtt_worker: mqtt::Options::default(),
+            relay_worker: relay::Options::default(),
             poller: poller::Options::default(),
             deployer: deployer::Options::default(),
             token_refresh_worker: token_refresh::Options::default(),
