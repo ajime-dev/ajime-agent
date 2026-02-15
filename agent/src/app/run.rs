@@ -193,7 +193,10 @@ async fn init_app_state(
     .await?;
 
     let app_state = Arc::new(app_state);
-    shutdown_manager.with_app_state(app_state.clone(), Box::pin(app_state_handle))?;
+    let handle_future = async move {
+        let _ = app_state_handle.await;
+    };
+    shutdown_manager.with_app_state(app_state.clone(), Box::pin(handle_future))?;
 
     Ok(app_state)
 }
@@ -271,25 +274,28 @@ async fn init_mqtt_worker(
 ) -> Result<(), AgentError> {
     info!("Initializing MQTT worker...");
 
-    let token_mngr = app_state.token_mngr.clone();
-    let syncer = app_state.syncer.clone();
-    let device_file = app_state.device_file.clone();
+    let token_mngr_clone = app_state.token_mngr.clone();
+    let syncer_clone = app_state.syncer.clone();
+    let device_file_clone = app_state.device_file.clone();
 
-    let mqtt_handle = tokio::spawn(async move {
-        mqtt::run(
-            &options,
-            token_mngr.as_ref(),
-            syncer.as_ref(),
-            device_file.as_ref(),
-            tokio::time::sleep,
-            Box::pin(async move {
-                let _ = shutdown_rx.recv().await;
-            }),
-        )
-        .await;
+    // MQTT worker runs without storing handle due to EventLoop Send+Sync constraints
+    // The task will run until the application shuts down via the shutdown signal
+    let _mqtt_handle = tokio::task::spawn_blocking(move || {
+        tokio::runtime::Handle::current().block_on(async move {
+            mqtt::run(
+                &options,
+                token_mngr_clone.as_ref(),
+                syncer_clone.as_ref(),
+                device_file_clone.as_ref(),
+                tokio::time::sleep,
+                Box::pin(async move {
+                    let _ = shutdown_rx.recv().await;
+                }),
+            )
+            .await;
+        });
     });
 
-    shutdown_manager.with_mqtt_worker_handle(mqtt_handle)?;
     Ok(())
 }
 
@@ -303,14 +309,12 @@ async fn init_deployer_worker(
 
     let http_client = app_state.http_client.clone();
     let token_mngr = app_state.token_mngr.clone();
-    let device_file = app_state.device_file.clone();
 
     let deployer_handle = tokio::spawn(async move {
         deployer::run(
             &options,
             http_client,
             token_mngr,
-            device_file,
             tokio::time::sleep,
             Box::pin(async move {
                 let _ = shutdown_rx.recv().await;

@@ -17,7 +17,6 @@ use ajigent::storage::settings::Settings;
 use ajigent::utils::version_info;
 use ajigent::workers::mqtt;
 
-use tokio::signal::unix::signal;
 use tracing::{error, info};
 
 #[tokio::main]
@@ -109,18 +108,28 @@ async fn main() {
 }
 
 async fn await_shutdown_signal() {
-    let mut sigterm = signal(tokio::signal::unix::SignalKind::terminate()).unwrap();
-    let mut sigint = signal(tokio::signal::unix::SignalKind::interrupt()).unwrap();
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut sigterm = signal(SignalKind::terminate()).unwrap();
+        let mut sigint = signal(SignalKind::interrupt()).unwrap();
 
-    tokio::select! {
-        _ = sigterm.recv() => {
-            info!("SIGTERM received, shutting down...");
+        tokio::select! {
+            _ = sigterm.recv() => {
+                info!("SIGTERM received, shutting down...");
+            }
+            _ = sigint.recv() => {
+                info!("SIGINT received, shutting down...");
+            }
+            _ = tokio::signal::ctrl_c() => {
+                info!("Ctrl+C received, shutting down...");
+            }
         }
-        _ = sigint.recv() => {
-            info!("SIGINT received, shutting down...");
-        }
-        _ = tokio::signal::ctrl_c() => {
-            info!("Ctrl+C received, shutting down...");
-        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
+        info!("Ctrl+C received, shutting down...");
     }
 }

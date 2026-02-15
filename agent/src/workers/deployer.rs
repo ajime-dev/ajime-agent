@@ -9,10 +9,9 @@ use tracing::{debug, error, info};
 
 use crate::errors::AgentError;
 use crate::http::client::HttpClient;
-use crate::authn::token_mngr::TokenManager;
+use crate::authn::token_mngr::{TokenManager, TokenManagerExt};
 use crate::models::deployment::{Deployment, DeploymentStatusUpdate, DeploymentLog};
 use crate::deploy::{docker, git, compose};
-use crate::storage::device::DeviceFile;
 
 /// Deployer worker options
 #[derive(Debug, Clone)]
@@ -34,7 +33,6 @@ pub async fn run<S, F>(
     options: &Options,
     http_client: Arc<HttpClient>,
     token_mngr: Arc<TokenManager>,
-    _device_file: Arc<DeviceFile>,
     sleep_fn: S,
     mut shutdown_signal: Pin<Box<dyn Future<Output = ()> + Send>>,
 ) where
@@ -55,8 +53,8 @@ pub async fn run<S, F>(
             }
         }
 
-        let device_id = match token_mngr.get_device_id().await {
-            Ok(id) => id,
+        let device_id: String = match token_mngr.get_device_id().await {
+            Ok(id) => id.to_string(),
             Err(_) => continue,
         };
 

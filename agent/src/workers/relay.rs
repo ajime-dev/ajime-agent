@@ -10,7 +10,7 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tracing::{debug, error, info, warn};
 use url::Url;
 
-use crate::authn::token_mngr::TokenManager;
+use crate::authn::token_mngr::{TokenManager, TokenManagerExt};
 use crate::errors::AgentError;
 
 /// Relay worker options

@@ -61,9 +61,10 @@ pub async fn deploy_git(
     if !run_cmd.is_empty() {
         info!("Starting application: {}", run_cmd);
         // Note: In production, this should be managed by a process supervisor
+        let cmd = format!("nohup {} > app.log 2>&1 &", run_cmd);
         let _ = Command::new("bash")
             .current_dir(path)
-            .args(["-c", format!("nohup {} > app.log 2>&1 &", run_cmd)])
+            .args(["-c", &cmd])
             .status()
             .await;
     }

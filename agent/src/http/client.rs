@@ -46,9 +46,7 @@ impl HttpClient {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             error!("HTTP GET failed: {} - {}", status, body);
-            return Err(AgentError::HttpError(reqwest::Error::from(
-                std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", status, body)),
-            )));
+            return Err(AgentError::ConfigError(format!("{}: {}", status, body)));
         }
 
         let body = response.json().await?;
@@ -77,9 +75,7 @@ impl HttpClient {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             error!("HTTP POST failed: {} - {}", status, body);
-            return Err(AgentError::HttpError(reqwest::Error::from(
-                std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", status, body)),
-            )));
+            return Err(AgentError::ConfigError(format!("{}: {}", status, body)));
         }
 
         let body = response.json().await?;
@@ -108,9 +104,7 @@ impl HttpClient {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             error!("HTTP PUT failed: {} - {}", status, body);
-            return Err(AgentError::HttpError(reqwest::Error::from(
-                std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", status, body)),
-            )));
+            return Err(AgentError::ConfigError(format!("{}: {}", status, body)));
         }
 
         let body = response.json().await?;
@@ -139,9 +133,7 @@ impl HttpClient {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             error!("HTTP PATCH failed: {} - {}", status, body);
-            return Err(AgentError::HttpError(reqwest::Error::from(
-                std::io::Error::new(std::io::ErrorKind::Other, format!("{}: {}", status, body)),
-            )));
+            return Err(AgentError::ConfigError(format!("{}: {}", status, body)));
         }
 
         let body = response.json().await?;
