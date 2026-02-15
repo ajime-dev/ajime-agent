@@ -4,8 +4,8 @@
 # Binary configuration
 binary_name: ajigent
 
-# Rust toolchain version (must match workspace Cargo.toml)
-rust_version: "1.84.0"
+# Rust toolchain version (stable for CI/CD compatibility)
+rust_version: "stable"
 
 # Build targets for cross-compilation
 targets:
