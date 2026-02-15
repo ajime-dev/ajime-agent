@@ -37,21 +37,18 @@ jobs:
         run: cargo install cross --git https://github.com/cross-rs/cross
       
       - name: Build binary for ${{ matrix.platform_name }}
-        run: |
-          cd agent
-          cross build --release --target ${{ matrix.rust_target }}
+        run: cross build --release --manifest-path agent/Cargo.toml --target ${{ matrix.rust_target }}
       
       - name: Rename binary
         run: |
           cp target/${{ matrix.rust_target }}/release/${{ env.BINARY_NAME }} \
              ${{ env.BINARY_NAME }}-${{ matrix.platform_name }}
-        working-directory: agent
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_NAME }}-${{ matrix.platform_name }}
-          path: agent/${{ env.BINARY_NAME }}-${{ matrix.platform_name }}
+          path: ${{ env.BINARY_NAME }}-${{ matrix.platform_name }}
           if-no-files-found: error
 
   release:
