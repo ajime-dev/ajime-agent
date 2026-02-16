@@ -77,7 +77,7 @@ pub struct BackendSettings {
 }
 
 fn default_backend_url() -> String {
-    "https://api.ajime.io/agent/v1".to_string()
+    "http://localhost:8000/api/v1".to_string()
 }
 
 impl Default for BackendSettings {
@@ -105,7 +105,7 @@ pub struct MqttBrokerSettings {
 }
 
 fn default_mqtt_host() -> String {
-    "mqtt.ajime.io".to_string()
+    "".to_string()
 }
 
 fn default_mqtt_port() -> u16 {

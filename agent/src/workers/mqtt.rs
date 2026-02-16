@@ -52,6 +52,11 @@ pub async fn run<S, T, F>(
     F: Future<Output = ()>,
     T: TokenManagerExt,
 {
+    if options.broker_address.host.is_empty() {
+        info!("MQTT host not configured, MQTT worker will not start.");
+        return;
+    }
+
     info!("MQTT worker starting...");
 
     let mut reconnect_attempts = 0;

@@ -17,7 +17,7 @@ pub struct MqttAddress {
 impl Default for MqttAddress {
     fn default() -> Self {
         Self {
-            host: "mqtt.ajime.io".to_string(),
+            host: "".to_string(),
             port: 8883,
             use_tls: true,
         }
@@ -38,6 +38,10 @@ impl MqttClient {
         device_id: &str,
         token: &str,
     ) -> Result<Self, AgentError> {
+        if address.host.is_empty() {
+            return Err(AgentError::MqttError("MQTT host is not configured".to_string()));
+        }
+
         let client_id = format!("ajigent-{}", device_id);
 
         let mut options = MqttOptions::new(&client_id, &address.host, address.port);
