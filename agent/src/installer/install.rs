@@ -80,7 +80,7 @@ async fn install_impl(cli_args: &HashMap<String, String>) -> Result<(), Box<dyn 
     let backend_url = cli_args
         .get("backend")
         .cloned()
-        .unwrap_or_else(|| "https://api.ajime.io/agent/v1".to_string());
+        .unwrap_or_else(|| "http://localhost:8000/api/v1".to_string());
 
     println!("Backend URL: {}", backend_url);
     println!();

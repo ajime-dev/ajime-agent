@@ -59,7 +59,7 @@ impl Default for AppOptions {
     fn default() -> Self {
         Self {
             lifecycle: LifecycleOptions::default(),
-            backend_base_url: "https://api.ajime.io/agent/v1".to_string(),
+            backend_base_url: "http://localhost:8000/api/v1".to_string(),
             storage: StorageOptions::default(),
             enable_socket_server: true,
             enable_mqtt_worker: true,
