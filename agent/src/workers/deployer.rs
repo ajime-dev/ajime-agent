@@ -68,11 +68,31 @@ pub async fn run<S, F>(
         // 1. Poll for pending deployments
         match http_client.get_pending_deployments(&device_id, &token).await {
             Ok(deployments) => {
+                // #region agent log
+                let _ = std::fs::OpenOptions::new().create(true).append(true).open(r"c:\Users\shach\Desktop\Projects\Ajime\.cursor\debug.log").and_then(|mut f| {
+                    use std::io::Write;
+                    writeln!(f, r#"{{"location":"deployer.rs:70","message":"Polled deployments","data":{{"count":{},"device_id":"{}"}},"timestamp":{},"hypothesisId":"H3"}}"#, deployments.len(), device_id, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+                });
+                // #endregion
+                
                 for deployment in deployments {
                     info!("Received deployment task: {} ({})", deployment.id, deployment.deployment_type);
                     
+                    // #region agent log
+                    let _ = std::fs::OpenOptions::new().create(true).append(true).open(r"c:\Users\shach\Desktop\Projects\Ajime\.cursor\debug.log").and_then(|mut f| {
+                        use std::io::Write;
+                        writeln!(f, r#"{{"location":"deployer.rs:73","message":"Executing deployment","data":{{"deployment_id":"{}","type":"{}","device_id":"{}"}},"timestamp":{},"hypothesisId":"H3,H4,H5"}}"#, deployment.id, deployment.deployment_type, device_id, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+                    });
+                    // #endregion
+                    
                     if let Err(e) = execute_deployment(deployment, http_client.clone(), &token).await {
                         error!("Deployment failed: {}", e);
+                        // #region agent log
+                        let _ = std::fs::OpenOptions::new().create(true).append(true).open(r"c:\Users\shach\Desktop\Projects\Ajime\.cursor\debug.log").and_then(|mut f| {
+                            use std::io::Write;
+                            writeln!(f, r#"{{"location":"deployer.rs:76","message":"Deployment failed","data":{{"error":"{}","device_id":"{}"}},"timestamp":{},"hypothesisId":"H4,H5"}}"#, e.to_string().replace('"', "'"), device_id, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
+                        });
+                        // #endregion
                     }
                 }
             }
