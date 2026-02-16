@@ -6,7 +6,7 @@ use std::time::Duration;
 use std::sync::Arc;
 
 use futures::{SinkExt, StreamExt};
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+use tokio_tungstenite::{connect_async, tungstenite::{protocol::Message, handshake::client::generate_key, http::Request}};
 use tracing::{debug, error, info, warn};
 use url::Url;
 
@@ -79,13 +79,19 @@ pub async fn run(
 
         info!("Connecting to relay: {}", relay_url);
         
-        // Prepare request with authentication headers
-        let request = http::Request::builder()
+        // Build a proper WebSocket upgrade request with all required headers
+        // tokio-tungstenite requires the WebSocket handshake headers when using a custom request
+        let ws_key = generate_key();
+        let request = Request::builder()
             .uri(relay_url.as_str())
+            .method("GET")
+            .header("Host", relay_url.host_str().unwrap_or("localhost"))
+            .header("Connection", "Upgrade")
+            .header("Upgrade", "websocket")
+            .header("Sec-WebSocket-Version", "13")
+            .header("Sec-WebSocket-Key", &ws_key)
             .header("X-Device-ID", &device_id)
             .header("X-Device-Secret", &token)
-            .header(http::header::AUTHORIZATION, format!("Bearer {}", token))
-            .header("User-Agent", "Ajime-Agent")
             .body(())
             .unwrap();
 
