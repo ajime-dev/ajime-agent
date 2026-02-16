@@ -45,7 +45,7 @@ impl HttpClient {
         device_id: &str,
         token: &str,
     ) -> Result<WorkflowListResponse, AgentError> {
-        let path = format!("/devices/{}/workflows", device_id);
+        let path = format!("/agent/devices/{}/workflows", device_id);
         self.get(&path, token).await
     }
 
@@ -55,7 +55,7 @@ impl HttpClient {
         workflow_id: &str,
         token: &str,
     ) -> Result<Workflow, AgentError> {
-        let path = format!("/workflows/{}", workflow_id);
+        let path = format!("/agent/workflows/{}", workflow_id);
         self.get(&path, token).await
     }
 
@@ -65,7 +65,7 @@ impl HttpClient {
         device_id: &str,
         token: &str,
     ) -> Result<Vec<WorkflowDigest>, AgentError> {
-        let path = format!("/devices/{}/workflows/digests", device_id);
+        let path = format!("/agent/devices/{}/workflows/digests", device_id);
         self.get(&path, token).await
     }
 
@@ -76,7 +76,7 @@ impl HttpClient {
         token: &str,
         local_digests: &[WorkflowDigest],
     ) -> Result<WorkflowSyncResponse, AgentError> {
-        let path = format!("/devices/{}/workflows/sync", device_id);
+        let path = format!("/agent/devices/{}/workflows/sync", device_id);
         self.post(&path, token, &local_digests).await
     }
 
@@ -88,7 +88,7 @@ impl HttpClient {
         token: &str,
         status: &WorkflowStatusReport,
     ) -> Result<(), AgentError> {
-        let path = format!("/devices/{}/workflows/{}/status", device_id, workflow_id);
+        let path = format!("/agent/devices/{}/workflows/{}/status", device_id, workflow_id);
         let _: serde_json::Value = self.post(&path, token, status).await?;
         Ok(())
     }

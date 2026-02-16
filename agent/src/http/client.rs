@@ -182,7 +182,7 @@ impl HttpClient {
         device_name: &str,
         device_type: Option<&str>,
     ) -> Result<DeviceActivationResponse, AgentError> {
-        let url = format!("{}/devices/activate", self.base_url);
+        let url = format!("{}/agent/devices/activate", self.base_url);
         debug!("POST {} (activation)", url);
 
         let body = serde_json::json!({
@@ -213,7 +213,7 @@ impl HttpClient {
         device_id: &str,
         current_token: &str,
     ) -> Result<String, AgentError> {
-        let url = format!("{}/devices/{}/token/refresh", self.base_url, device_id);
+        let url = format!("{}/agent/devices/{}/token/refresh", self.base_url, device_id);
         debug!("POST {} (token refresh)", url);
 
         let response = self

@@ -39,7 +39,7 @@ impl HttpClient {
         token: &str,
         status: &DeviceStatusUpdate,
     ) -> Result<(), AgentError> {
-        let path = format!("/devices/{}/status", device_id);
+        let path = format!("/agent/devices/{}/status", device_id);
         let _: serde_json::Value = self.put(&path, token, status).await?;
         Ok(())
     }
@@ -51,7 +51,7 @@ impl HttpClient {
         token: &str,
         request: &DeviceSyncRequest,
     ) -> Result<DeviceSyncResponse, AgentError> {
-        let path = format!("/devices/{}/sync", device_id);
+        let path = format!("/agent/devices/{}/sync", device_id);
         self.post(&path, token, request).await
     }
 
@@ -62,7 +62,7 @@ impl HttpClient {
         token: &str,
         metrics: &SystemMetrics,
     ) -> Result<(), AgentError> {
-        let path = format!("/devices/{}/telemetry", device_id);
+        let path = format!("/agent/devices/{}/telemetry", device_id);
         let _: serde_json::Value = self.post(&path, token, metrics).await?;
         Ok(())
     }
@@ -73,7 +73,7 @@ impl HttpClient {
         device_id: &str,
         token: &str,
     ) -> Result<DeviceSettings, AgentError> {
-        let path = format!("/devices/{}/settings", device_id);
+        let path = format!("/agent/devices/{}/settings", device_id);
         self.get(&path, token).await
     }
 }
