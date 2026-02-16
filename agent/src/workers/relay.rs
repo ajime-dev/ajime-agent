@@ -131,7 +131,9 @@ pub async fn run(
                 }
             }
             Err(e) => {
-                error!("Failed to connect to relay: {}. Retrying in {:?}...", e, options.reconnect_delay);
+                error!("Failed to connect to relay: {}. Check backend connectivity and AuthMiddleware exemptions. Retrying in 10s...", e);
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                continue;
             }
         }
 
