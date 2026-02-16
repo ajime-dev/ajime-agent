@@ -121,6 +121,34 @@ async fn execute_deployment(
             let target_dir = format!("/etc/ajime/deployments/{}", deployment.id);
             compose::deploy_compose(&target_dir).await
         }
+        "git_compose" => {
+            // Unified workflow deployment: git sync + docker-compose
+            let repo_url = deployment.config.get("repo_url").and_then(|v| v.as_str()).unwrap_or("");
+            let branch = deployment.config.get("branch").and_then(|v| v.as_str()).unwrap_or("main");
+            let project_dir = deployment.config.get("project_dir").and_then(|v| v.as_str()).unwrap_or("");
+            
+            if repo_url.is_empty() || project_dir.is_empty() {
+                return Err(AgentError::DeployError("Missing repo_url or project_dir for git_compose deployment".to_string()));
+            }
+            
+            // Log git sync start
+            let _ = http_client.send_deployment_log(&id, token, DeploymentLog {
+                level: "info".to_string(),
+                message: format!("Syncing repository {} (branch: {}) to {}", repo_url, branch, project_dir),
+            }).await;
+            
+            // Execute git sync
+            git::sync_repository(repo_url, branch, project_dir).await?;
+            
+            // Log compose start
+            let _ = http_client.send_deployment_log(&id, token, DeploymentLog {
+                level: "info".to_string(),
+                message: format!("Running docker-compose in {}", project_dir),
+            }).await;
+            
+            // Execute docker-compose
+            compose::deploy_compose(project_dir).await
+        }
         _ => Err(AgentError::DeployError(format!("Unsupported deployment type: {}", deployment.deployment_type))),
     };
 

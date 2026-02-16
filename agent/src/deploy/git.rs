@@ -5,6 +5,46 @@ use tokio::process::Command;
 use tracing::{info, error, debug};
 use crate::errors::AgentError;
 
+/// Sync a git repository (clone or pull)
+pub async fn sync_repository(
+    repo_url: &str,
+    branch: &str,
+    target_dir: &str
+) -> Result<(), AgentError> {
+    info!("Syncing Git repository: {} (branch: {}) to {}", repo_url, branch, target_dir);
+
+    let path = Path::new(target_dir);
+
+    // Clone or Pull
+    if path.exists() {
+        debug!("Target directory exists, pulling updates...");
+        let status = Command::new("git")
+            .current_dir(path)
+            .args(["pull", "origin", branch])
+            .status()
+            .await
+            .map_err(|e| AgentError::DeployError(format!("Failed to run git pull: {}", e)))?;
+        
+        if !status.success() {
+            return Err(AgentError::DeployError("Git pull failed".to_string()));
+        }
+    } else {
+        debug!("Cloning repository to {}...", target_dir);
+        let status = Command::new("git")
+            .args(["clone", "-b", branch, repo_url, target_dir])
+            .status()
+            .await
+            .map_err(|e| AgentError::DeployError(format!("Failed to run git clone: {}", e)))?;
+        
+        if !status.success() {
+            return Err(AgentError::DeployError("Git clone failed".to_string()));
+        }
+    }
+
+    info!("Successfully synced Git repository");
+    Ok(())
+}
+
 pub async fn deploy_git(
     repo_url: &str, 
     branch: &str, 
