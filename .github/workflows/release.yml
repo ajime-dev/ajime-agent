@@ -17,11 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - rust_target: x86_64-unknown-linux-gnu
+          - rust_target: x86_64-unknown-linux-musl
             platform_name: linux-x86_64
-          - rust_target: aarch64-unknown-linux-gnu
+          - rust_target: aarch64-unknown-linux-musl
             platform_name: linux-arm64
-          - rust_target: armv7-unknown-linux-gnueabihf
+          - rust_target: armv7-unknown-linux-musleabihf
             platform_name: linux-armv7
     
     steps:
