@@ -14,7 +14,7 @@ use ajigent::mqtt::client::MqttAddress;
 use ajigent::storage::device::assert_activated;
 use ajigent::storage::layout::StorageLayout;
 use ajigent::storage::settings::Settings;
-use ajigent::utils::version_info;
+use ajigent::utils::{version_info, run_diagnostic};
 use ajigent::workers::mqtt;
 
 use tracing::{error, info};
@@ -41,6 +41,12 @@ async fn main() {
     let version = version_info();
     if cli_args.contains_key("version") {
         println!("{}", serde_json::to_string_pretty(&version).unwrap());
+        return;
+    }
+
+    // Run diagnostics
+    if cli_args.contains_key("diagnostic") || cli_args.contains_key("diag") {
+        run_diagnostic().await;
         return;
     }
 

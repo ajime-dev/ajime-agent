@@ -60,6 +60,7 @@ uuid = { version = "1.16", features = ["v4", "serde"] }
 thiserror = "2.0"
 anyhow = "1.0"
 secrecy = { version = "0.10", features = ["serde"] }
+colored = "3.0"
 
 # Hardware (optional features)
 # rppal = "0.18"  # Raspberry Pi - enable on ARM builds

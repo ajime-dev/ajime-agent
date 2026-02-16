@@ -94,3 +94,106 @@ mod tests {
         assert_eq!(hash.len(), 64);
     }
 }
+
+/// Run diagnostics on the agent
+pub async fn run_diagnostic() {
+    use crate::storage::layout::StorageLayout;
+    use crate::storage::device::Device;
+    use crate::storage::settings::Settings;
+    use colored::*;
+
+    println!("{}", "=== Ajime Agent Diagnostic ===".bold().cyan());
+    
+    let layout = StorageLayout::default();
+    let device_file = layout.device_file();
+    let settings_file = layout.settings_file();
+
+    // 1. Check device.json
+    print!("Checking device credentials (device.json)... ");
+    let device = match device_file.read_json::<Device>().await {
+        Ok(d) => {
+            println!("{}", "OK".green());
+            Some(d)
+        },
+        Err(e) => {
+            println!("{} ({})", "FAILED".red(), e);
+            None
+        }
+    };
+
+    // 2. Check settings.json
+    print!("Checking agent settings (settings.json)... ");
+    let settings = match settings_file.read_json::<Settings>().await {
+        Ok(s) => {
+            println!("{}", "OK".green());
+            Some(s)
+        },
+        Err(e) => {
+            println!("{} ({})", "FAILED".red(), e);
+            None
+        }
+    };
+
+    if let (Some(device), Some(settings)) = (device, settings) {
+        println!("\n{}", "--- Connectivity ---".bold());
+        
+        let backend_url = &settings.backend.base_url;
+        println!("Backend URL: {}", backend_url);
+        
+        // 3. Test basic reachability
+        print!("Testing backend reachability... ");
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .user_agent("Ajime-Agent-Diagnostic")
+            .build()
+            .unwrap();
+
+        match client.get(backend_url.trim_end_matches("/api/v1")).send().await {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    println!("{}", "OK".green());
+                } else {
+                    println!("{} (HTTP {})", "WARNING".yellow(), resp.status());
+                }
+            },
+            Err(e) => {
+                println!("{} ({})", "FAILED".red(), e);
+            }
+        }
+
+        // 4. Test authentication
+        print!("Testing credential authentication... ");
+        let test_url = format!("{}/agent/devices/{}/test-credentials", backend_url, device.id);
+        
+        let auth_resp = client.post(&test_url)
+            .header("X-Device-ID", &device.id)
+            .header("Authorization", format!("Bearer {}", device.token))
+            .send()
+            .await;
+
+        match auth_resp {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    let body: serde_json::Value = resp.json().await.unwrap_or_default();
+                    if body["status"] == "success" {
+                        println!("{}", "AUTHENTICATED".green().bold());
+                    } else {
+                        let msg = body["message"].as_str().unwrap_or("Unknown error");
+                        println!("{} (Backend: {})", "REFUSED".red().bold(), msg);
+                    }
+                } else {
+                    let status = resp.status();
+                    let body = resp.text().await.unwrap_or_default();
+                    println!("{} (HTTP {} - {})", "ERROR".red().bold(), status, body);
+                }
+            },
+            Err(e) => {
+                println!("{} ({})", "FAILED".red(), e);
+            }
+        }
+    } else {
+        println!("\n{}", "Cannot proceed with connectivity tests due to missing configuration.".yellow());
+    }
+
+    println!("\n{}", "==============================".bold().cyan());
+}
