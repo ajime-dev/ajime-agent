@@ -41,7 +41,7 @@ pub struct DeviceToken {
 }
 
 impl DeviceToken {
-    /// Create a new device token from raw string
+    /// Create a new device token from raw string (JWT)
     /// Note: This does NOT validate the signature, only decodes the claims
     pub fn from_raw(raw: String) -> Result<Self, AgentError> {
         // Decode without validation to extract claims
@@ -61,6 +61,27 @@ impl DeviceToken {
             raw,
             claims: token_data.claims,
         })
+    }
+
+    /// Create a device token from a raw device secret (non-JWT)
+    /// Used when device.json contains a device_secret instead of a JWT
+    pub fn from_secret(device_id: String, secret: String) -> Self {
+        let now = Utc::now().timestamp();
+        // Create minimal claims for a secret-based token
+        // exp is set far in the future since secrets don't expire
+        let claims = DeviceTokenClaims {
+            sub: device_id.clone(),
+            owner_id: String::new(), // Will be validated by backend
+            capabilities: vec![],
+            iat: now,
+            exp: now + (365 * 24 * 60 * 60), // 1 year
+            iss: Some("device-secret".to_string()),
+        };
+
+        Self {
+            raw: secret,
+            claims,
+        }
     }
 
     /// Get the device ID

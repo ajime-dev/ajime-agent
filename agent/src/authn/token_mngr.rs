@@ -4,13 +4,13 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info};
+use tracing::{info};
 
 use crate::authn::device_token::DeviceToken;
 use crate::errors::AgentError;
 use crate::filesys::file::File;
 use crate::http::client::HttpClient;
-use crate::storage::device::{load_device, save_device, Device};
+use crate::storage::device::{load_device, save_device};
 
 /// Token manager trait for testability
 #[async_trait]
@@ -53,7 +53,16 @@ impl TokenManager {
     /// Load token from device file
     async fn load_token(&self) -> Result<DeviceToken, AgentError> {
         let device = load_device(&self.device_file).await?;
-        let token = DeviceToken::from_raw(device.token)?;
+        
+        // Try to decode as JWT first
+        let token = match DeviceToken::from_raw(device.token.clone()) {
+            Ok(token) => token,
+            Err(_) => {
+                // If JWT decode fails, treat it as a raw device secret
+                info!("Token is not a JWT, treating as device secret");
+                DeviceToken::from_secret(device.id.clone(), device.token)
+            }
+        };
 
         let mut cached = self.cached_token.write().await;
         *cached = Some(token.clone());

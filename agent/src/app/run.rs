@@ -181,7 +181,15 @@ async fn init_app_state(
     options: &AppOptions,
     shutdown_manager: &mut ShutdownManager,
 ) -> Result<Arc<AppState>, AgentError> {
-    let http_client = Arc::new(HttpClient::new(&options.backend_base_url).await?);
+    // Load device to get device_id for HttpClient
+    use crate::storage::device::load_device;
+    let device_file = Arc::new(options.storage.layout.device_file());
+    let device = load_device(&device_file).await?;
+    
+    // Create HttpClient with device_id for authentication
+    let http_client = Arc::new(
+        HttpClient::with_device_id(&options.backend_base_url, device.id.clone()).await?
+    );
 
     let (app_state, app_state_handle) = AppState::init(
         agent_version,

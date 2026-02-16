@@ -138,6 +138,20 @@ pub async fn run(
     }
 }
 
+/// Build the relay WebSocket URL from the backend base URL
+/// 
+/// # URL Construction
+/// - Input: `backend_url` from settings (e.g., `https://example.com/api/v1`)
+/// - Output: WebSocket URL (e.g., `wss://example.com/api/v1/agent-relay/ws`)
+/// 
+/// # Backend Routing
+/// The backend mounts the agent_relay router at:
+/// - Main app: `prefix="/api/v1"` (in main.py)
+/// - Router: `prefix="/agent-relay"` (in agent_relay.py)
+/// - WebSocket endpoint: `/ws` (in agent_relay.py)
+/// - Full path: `/api/v1/agent-relay/ws`
+/// 
+/// This function converts http(s) to ws(s) and appends `/agent-relay/ws` to the path.
 fn build_relay_url(backend_url: &str) -> Result<Url, AgentError> {
     let mut url = Url::parse(backend_url).map_err(|e| AgentError::ConfigError(e.to_string()))?;
     
@@ -150,7 +164,7 @@ fn build_relay_url(backend_url: &str) -> Result<Url, AgentError> {
     
     url.set_scheme(scheme).map_err(|_| AgentError::ConfigError("Failed to set scheme".to_string()))?;
     
-    // Append /agent-relay/ws
+    // Append /agent-relay/ws to the existing path
     url.set_path(&format!("{}/agent-relay/ws", url.path().trim_end_matches('/')));
     
     Ok(url)

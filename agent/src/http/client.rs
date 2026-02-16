@@ -10,6 +10,7 @@ use crate::errors::AgentError;
 pub struct HttpClient {
     client: Client,
     base_url: String,
+    device_id: Option<String>,
 }
 
 impl HttpClient {
@@ -22,6 +23,20 @@ impl HttpClient {
         Ok(Self {
             client,
             base_url: base_url.trim_end_matches('/').to_string(),
+            device_id: None,
+        })
+    }
+
+    /// Create a new HTTP client with device ID for authentication
+    pub async fn with_device_id(base_url: &str, device_id: String) -> Result<Self, AgentError> {
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()?;
+
+        Ok(Self {
+            client,
+            base_url: base_url.trim_end_matches('/').to_string(),
+            device_id: Some(device_id),
         })
     }
 
@@ -35,12 +50,17 @@ impl HttpClient {
         let url = format!("{}{}", self.base_url, path);
         debug!("GET {}", url);
 
-        let response = self
+        let mut request = self
             .client
             .get(&url)
-            .header(header::AUTHORIZATION, format!("Bearer {}", token))
-            .send()
-            .await?;
+            .header(header::AUTHORIZATION, format!("Bearer {}", token));
+        
+        // Add X-Device-ID header if device_id is set
+        if let Some(device_id) = &self.device_id {
+            request = request.header("X-Device-ID", device_id);
+        }
+
+        let response = request.send().await?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -63,13 +83,18 @@ impl HttpClient {
         let url = format!("{}{}", self.base_url, path);
         debug!("POST {}", url);
 
-        let response = self
+        let mut request = self
             .client
             .post(&url)
             .header(header::AUTHORIZATION, format!("Bearer {}", token))
-            .json(body)
-            .send()
-            .await?;
+            .json(body);
+        
+        // Add X-Device-ID header if device_id is set
+        if let Some(device_id) = &self.device_id {
+            request = request.header("X-Device-ID", device_id);
+        }
+
+        let response = request.send().await?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -92,13 +117,18 @@ impl HttpClient {
         let url = format!("{}{}", self.base_url, path);
         debug!("PUT {}", url);
 
-        let response = self
+        let mut request = self
             .client
             .put(&url)
             .header(header::AUTHORIZATION, format!("Bearer {}", token))
-            .json(body)
-            .send()
-            .await?;
+            .json(body);
+        
+        // Add X-Device-ID header if device_id is set
+        if let Some(device_id) = &self.device_id {
+            request = request.header("X-Device-ID", device_id);
+        }
+
+        let response = request.send().await?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -121,13 +151,18 @@ impl HttpClient {
         let url = format!("{}{}", self.base_url, path);
         debug!("PATCH {}", url);
 
-        let response = self
+        let mut request = self
             .client
             .patch(&url)
             .header(header::AUTHORIZATION, format!("Bearer {}", token))
-            .json(body)
-            .send()
-            .await?;
+            .json(body);
+        
+        // Add X-Device-ID header if device_id is set
+        if let Some(device_id) = &self.device_id {
+            request = request.header("X-Device-ID", device_id);
+        }
+
+        let response = request.send().await?;
 
         if !response.status().is_success() {
             let status = response.status();
