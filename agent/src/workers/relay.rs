@@ -83,7 +83,8 @@ pub async fn run(
         let request = http::Request::builder()
             .uri(relay_url.as_str())
             .header("X-Device-ID", &device_id)
-            .header("X-Device-Secret", &token) // Using token as secret for now
+            .header("X-Device-Secret", &token)
+            .header(http::header::AUTHORIZATION, format!("Bearer {}", token))
             .header("User-Agent", "Ajime-Agent")
             .body(())
             .unwrap();
