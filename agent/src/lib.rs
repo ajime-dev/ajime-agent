@@ -14,11 +14,13 @@ pub mod installer;
 pub mod logs;
 pub mod models;
 pub mod mqtt;
+pub mod scanner;
 pub mod server;
 pub mod services;
 pub mod storage;
 pub mod sync;
 pub mod telemetry;
+pub mod terminal;
 pub mod utils;
 pub mod workers;
 

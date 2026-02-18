@@ -6,10 +6,57 @@ use tracing::{info, error, debug};
 use crate::errors::AgentError;
 
 pub async fn deploy_docker(image: &str, tag: &str) -> Result<(), AgentError> {
-    let full_image = format!("{}:{}", image, tag);
+    // Handle case where image already includes tag (e.g., from Ajime builder)
+    let full_image = if image.contains(':') || tag.is_empty() {
+        image.to_string()
+    } else {
+        format!("{}:{}", image, tag)
+    };
+    
     info!("Deploying Docker image: {}", full_image);
 
-    // 1. Pull image
+    // 1. Authenticate with GHCR if this is a ghcr.io image
+    if full_image.starts_with("ghcr.io/") {
+        debug!("Authenticating with GitHub Container Registry...");
+        
+        // Check if GHCR_TOKEN environment variable is set
+        if let Ok(ghcr_token) = std::env::var("GHCR_TOKEN") {
+            let login_status = Command::new("docker")
+                .args(["login", "ghcr.io", "-u", "ajime-agent", "--password-stdin"])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .and_then(|mut child| {
+                    use std::io::Write;
+                    if let Some(mut stdin) = child.stdin.take() {
+                        stdin.write_all(ghcr_token.as_bytes())?;
+                    }
+                    Ok(child)
+                })
+                .and_then(|child| {
+                    tokio::runtime::Handle::current().block_on(async {
+                        child.wait_with_output().await
+                    })
+                });
+            
+            match login_status {
+                Ok(output) if output.status.success() => {
+                    debug!("Successfully authenticated with GHCR");
+                }
+                Ok(_) => {
+                    debug!("GHCR authentication failed, attempting public pull");
+                }
+                Err(e) => {
+                    debug!("Failed to run docker login: {}, attempting public pull", e);
+                }
+            }
+        } else {
+            debug!("GHCR_TOKEN not set, attempting public pull");
+        }
+    }
+
+    // 2. Pull image
     debug!("Pulling image: {}", full_image);
     let pull_status = Command::new("docker")
         .args(["pull", &full_image])
@@ -21,8 +68,15 @@ pub async fn deploy_docker(image: &str, tag: &str) -> Result<(), AgentError> {
         return Err(AgentError::DeployError(format!("Docker pull failed for {}", full_image)));
     }
 
-    // 2. Stop existing container if any (simplified: using image name as container name)
-    let container_name = image.split('/').last().unwrap_or(image);
+    // 3. Stop existing container if any (simplified: using image name as container name)
+    let container_name = full_image
+        .split('/')
+        .last()
+        .unwrap_or(&full_image)
+        .split(':')
+        .next()
+        .unwrap_or("container");
+    
     debug!("Stopping existing container: {}", container_name);
     let _ = Command::new("docker")
         .args(["stop", container_name])
@@ -34,10 +88,10 @@ pub async fn deploy_docker(image: &str, tag: &str) -> Result<(), AgentError> {
         .status()
         .await;
 
-    // 3. Run new container
+    // 4. Run new container
     debug!("Running new container: {}", container_name);
     let run_status = Command::new("docker")
-        .args(["run", "-d", "--name", container_name, &full_image])
+        .args(["run", "-d", "--name", container_name, "--restart", "unless-stopped", &full_image])
         .status()
         .await
         .map_err(|e| AgentError::DeployError(format!("Failed to run docker run: {}", e)))?;

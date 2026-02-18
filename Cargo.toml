@@ -17,7 +17,7 @@ git_commit = "dev"
 
 [workspace.dependencies]
 # Async runtime
-tokio = { version = "1.41", features = ["rt-multi-thread", "fs", "signal", "sync", "time", "macros", "process"] }
+tokio = { version = "1.41", features = ["rt-multi-thread", "fs", "net", "signal", "sync", "time", "macros", "process"] }
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 futures = "0.3"
 async-trait = "0.1"
@@ -61,6 +61,12 @@ thiserror = "2.0"
 anyhow = "1.0"
 secrecy = { version = "0.10", features = ["serde"] }
 colored = "3.0"
+
+# PTY support for agent terminal feature
+portable-pty = "0.8"
+
+# CIDR / subnet parsing for network scanner
+ipnet = "2.9"
 
 # Hardware (optional features)
 # rppal = "0.18"  # Raspberry Pi - enable on ARM builds

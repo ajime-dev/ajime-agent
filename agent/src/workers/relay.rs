@@ -1,25 +1,42 @@
-//! WebSocket Relay worker for real-time communication
+//! WebSocket Relay worker for real-time communication.
+//!
+//! Maintains a persistent connection to the backend relay endpoint. Incoming
+//! commands are dispatched to handlers for: deployments, terminal sessions,
+//! file operations, and network scanning.
 
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use std::time::Duration;
 use std::sync::Arc;
+use std::time::Duration;
 
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use futures::{SinkExt, StreamExt};
-use tokio_tungstenite::{connect_async, tungstenite::{protocol::Message, handshake::client::generate_key, http::Request}};
+use tokio::sync::{mpsc, Mutex};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{handshake::client::generate_key, http::Request, protocol::Message},
+};
 use tracing::{debug, error, info, warn};
 use url::Url;
 
 use crate::authn::token_mngr::{TokenManager, TokenManagerExt};
 use crate::errors::AgentError;
+use crate::terminal::TerminalSession;
 
-/// Relay worker options
+/// Alias for the WS outgoing message sender.
+type WsTx = mpsc::UnboundedSender<Message>;
+
+/// Shared terminal session map: session_id -> TerminalSession.
+type Sessions = Arc<Mutex<HashMap<String, TerminalSession>>>;
+
+/// Relay worker options.
 #[derive(Debug, Clone)]
 pub struct Options {
-    /// Reconnect delay on failure
+    /// Reconnect delay on failure.
     pub reconnect_delay: Duration,
 
-    /// Heartbeat interval
+    /// Heartbeat interval.
     pub heartbeat_interval: Duration,
 }
 
@@ -32,7 +49,7 @@ impl Default for Options {
     }
 }
 
-/// Run the Relay worker
+/// Run the relay worker. Reconnects automatically on failure.
 pub async fn run(
     options: &Options,
     token_mngr: Arc<TokenManager>,
@@ -50,13 +67,13 @@ pub async fn run(
     };
 
     loop {
-        // Check for shutdown before attempting connection
+        // Exit immediately if shutdown has been signalled.
         tokio::select! {
             _ = &mut shutdown_signal => {
                 info!("Relay worker shutting down...");
                 return;
             }
-            _ = async {} => {} // Continue
+            _ = async {} => {}
         }
 
         let device_id = match token_mngr.get_device_id().await {
@@ -78,9 +95,7 @@ pub async fn run(
         };
 
         info!("Connecting to relay: {}", relay_url);
-        
-        // Build a proper WebSocket upgrade request with all required headers
-        // tokio-tungstenite requires the WebSocket handshake headers when using a custom request
+
         let ws_key = generate_key();
         let request = Request::builder()
             .uri(relay_url.as_str())
@@ -95,40 +110,57 @@ pub async fn run(
             .body(())
             .unwrap();
 
-        let connection = connect_async(request).await;
+        match connect_async(request).await {
+            Ok((ws_stream, _)) => {
+                info!("Connected to WebSocket relay");
 
-        match connection {
-            Ok((mut ws_stream, _)) => {
-                info!("✓ Connected to WebSocket Relay");
-                
+                let (ws_sink, mut ws_rx) = ws_stream.split();
+
+                // Channel for sending outgoing WS messages from handlers
+                let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+
+                // Spawn a task that forwards channel messages to the WS sink
+                tokio::spawn(async move {
+                    let mut sink = ws_sink;
+                    while let Some(msg) = rx.recv().await {
+                        if sink.send(msg).await.is_err() {
+                            break;
+                        }
+                    }
+                });
+
+                // Terminal sessions are scoped to this connection
+                let sessions: Sessions = Arc::new(Mutex::new(HashMap::new()));
+
                 let mut heartbeat_tick = tokio::time::interval(options.heartbeat_interval);
-                
-                loop {
+
+                'inner: loop {
                     tokio::select! {
                         _ = &mut shutdown_signal => {
                             info!("Relay worker shutting down connection...");
-                            let _ = ws_stream.close(None).await;
                             return;
                         }
                         _ = heartbeat_tick.tick() => {
                             let ping = serde_json::json!({"type": "ping"}).to_string();
-                            if let Err(e) = ws_stream.send(Message::Text(ping.into())).await {
-                                warn!("Failed to send heartbeat: {}", e);
-                                break;
-                            }
+                            let _ = tx.send(Message::Text(ping.into()));
                         }
-                        msg = ws_stream.next() => {
+                        msg = ws_rx.next() => {
                             match msg {
                                 Some(Ok(Message::Text(text))) => {
-                                    handle_message(&text).await;
+                                    handle_message(
+                                        &text,
+                                        tx.clone(),
+                                        Arc::clone(&sessions),
+                                    )
+                                    .await;
                                 }
                                 Some(Ok(Message::Close(_))) => {
                                     warn!("Relay closed connection");
-                                    break;
+                                    break 'inner;
                                 }
                                 Some(Err(e)) => {
                                     error!("Relay WebSocket error: {}", e);
-                                    break;
+                                    break 'inner;
                                 }
                                 _ => {}
                             }
@@ -137,7 +169,10 @@ pub async fn run(
                 }
             }
             Err(e) => {
-                error!("Failed to connect to relay: {}. Check backend connectivity and AuthMiddleware exemptions. Retrying in 10s...", e);
+                error!(
+                    "Failed to connect to relay: {}. Retrying in 10s...",
+                    e
+                );
                 tokio::time::sleep(Duration::from_secs(10)).await;
                 continue;
             }
@@ -147,57 +182,209 @@ pub async fn run(
     }
 }
 
-/// Build the relay WebSocket URL from the backend base URL
-/// 
-/// # URL Construction
-/// - Input: `backend_url` from settings (e.g., `https://example.com/api/v1`)
-/// - Output: WebSocket URL (e.g., `wss://example.com/api/v1/agent-relay/ws`)
-/// 
-/// # Backend Routing
-/// The backend mounts the agent_relay router at:
-/// - Main app: `prefix="/api/v1"` (in main.py)
-/// - Router: `prefix="/agent-relay"` (in agent_relay.py)
-/// - WebSocket endpoint: `/ws` (in agent_relay.py)
-/// - Full path: `/api/v1/agent-relay/ws`
-/// 
-/// This function converts http(s) to ws(s) and appends `/agent-relay/ws` to the path.
+// ---------------------------------------------------------------------------
+// URL helpers
+// ---------------------------------------------------------------------------
+
 fn build_relay_url(backend_url: &str) -> Result<Url, AgentError> {
-    let mut url = Url::parse(backend_url).map_err(|e| AgentError::ConfigError(e.to_string()))?;
-    
-    // Change http/https to ws/wss
+    let mut url =
+        Url::parse(backend_url).map_err(|e| AgentError::ConfigError(e.to_string()))?;
+
     let scheme = match url.scheme() {
         "http" => "ws",
         "https" => "wss",
-        _ => return Err(AgentError::ConfigError("Invalid backend URL scheme".to_string())),
+        _ => {
+            return Err(AgentError::ConfigError(
+                "Invalid backend URL scheme".to_string(),
+            ))
+        }
     };
-    
-    url.set_scheme(scheme).map_err(|_| AgentError::ConfigError("Failed to set scheme".to_string()))?;
-    
-    // Append /agent-relay/ws to the existing path
-    url.set_path(&format!("{}/agent-relay/ws", url.path().trim_end_matches('/')));
-    
+
+    url.set_scheme(scheme)
+        .map_err(|_| AgentError::ConfigError("Failed to set scheme".to_string()))?;
+
+    url.set_path(&format!(
+        "{}/agent-relay/ws",
+        url.path().trim_end_matches('/')
+    ));
+
     Ok(url)
 }
 
-async fn handle_message(text: &str) {
+// ---------------------------------------------------------------------------
+// Message dispatcher
+// ---------------------------------------------------------------------------
+
+async fn handle_message(text: &str, tx: WsTx, sessions: Sessions) {
     debug!("Received relay message: {}", text);
-    
+
     let msg: serde_json::Value = match serde_json::from_str(text) {
         Ok(m) => m,
         Err(_) => return,
     };
-    
-    match msg.get("type").and_then(|t| t.as_str()) {
+
+    // The server wraps commands as:
+    //   {"type": "command", "msg_id": "...", "command_type": "...", "payload": {...}}
+    // Push messages have "type" set directly to the message type (e.g. "new_deployment").
+    let msg_type = if msg.get("type").and_then(|t| t.as_str()) == Some("command") {
+        msg.get("command_type").and_then(|t| t.as_str())
+    } else {
+        msg.get("type").and_then(|t| t.as_str())
+    };
+
+    // msg_id is used to correlate request/response pairs
+    let msg_id = msg
+        .get("msg_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let payload = &msg["payload"];
+
+    match msg_type {
+        // ── Legacy: deployment trigger (fire-and-forget) ──────────────────
         Some("new_deployment") => {
-            let deployment_id = msg.get("deployment_id").and_then(|v| v.as_str()).unwrap_or("unknown");
-            info!("🚀 Real-time trigger: New deployment pending: {}", deployment_id);
-            // The deployer worker poller will pick it up on next tick (or we could use a channel to trigger it immediately)
+            let id = msg
+                .get("deployment_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            info!("Real-time trigger: new deployment pending: {}", id);
         }
+
         Some("pong") => {
             debug!("Relay pong received");
         }
+
+        // ── Terminal: create session ──────────────────────────────────────
+        Some("terminal_create") => {
+            let session_id = payload["session_id"]
+                .as_str()
+                .unwrap_or(&msg_id)
+                .to_string();
+            let cols = payload["cols"].as_u64().unwrap_or(80) as u16;
+            let rows = payload["rows"].as_u64().unwrap_or(24) as u16;
+
+            let resp = match TerminalSession::new(
+                session_id.clone(),
+                cols,
+                rows,
+                tx.clone(),
+            ) {
+                Ok(session) => {
+                    sessions.lock().await.insert(session_id.clone(), session);
+                    info!("Terminal session created: {}", session_id);
+                    serde_json::json!({
+                        "type": "response",
+                        "msg_id": msg_id,
+                        "result": { "session_id": session_id },
+                        "error": null
+                    })
+                }
+                Err(e) => {
+                    error!("Terminal create failed: {}", e);
+                    serde_json::json!({
+                        "type": "response",
+                        "msg_id": msg_id,
+                        "result": null,
+                        "error": e.to_string()
+                    })
+                }
+            };
+            let _ = tx.send(Message::Text(resp.to_string().into()));
+        }
+
+        // ── Terminal: send keystrokes ─────────────────────────────────────
+        Some("terminal_input") => {
+            let session_id = payload["session_id"].as_str().unwrap_or_default();
+            let data_b64 = payload["data"].as_str().unwrap_or_default();
+
+            if let Ok(bytes) = BASE64.decode(data_b64) {
+                let sessions_guard = sessions.lock().await;
+                if let Some(session) = sessions_guard.get(session_id) {
+                    if let Err(e) = session.write_input(&bytes) {
+                        warn!("Terminal input error for {}: {}", session_id, e);
+                    }
+                }
+            }
+        }
+
+        // ── Terminal: close session ───────────────────────────────────────
+        Some("terminal_close") => {
+            let session_id = payload["session_id"].as_str().unwrap_or_default();
+            sessions.lock().await.remove(session_id);
+            info!("Terminal session closed: {}", session_id);
+        }
+
+        // ── File: list directory ──────────────────────────────────────────
+        Some("file_list") => {
+            let path = payload["path"].as_str().unwrap_or("/");
+            let result = crate::filesys::relay::list_directory(path).await;
+            send_response(&tx, &msg_id, result.map(|files| serde_json::json!({ "files": files })));
+        }
+
+        // ── File: read (returns Base64 content) ───────────────────────────
+        Some("file_read") => {
+            let path = payload["path"].as_str().unwrap_or("");
+            let result = crate::filesys::relay::read_file(path).await;
+            send_response(&tx, &msg_id, result.map(|content| serde_json::json!({ "content": content })));
+        }
+
+        // ── File: write (Base64-encoded content) ─────────────────────────
+        Some("file_write") => {
+            let path = payload["path"].as_str().unwrap_or("");
+            let content = payload["content"].as_str().unwrap_or("");
+            let result = crate::filesys::relay::write_file(path, content).await;
+            send_response(&tx, &msg_id, result.map(|_| serde_json::json!({ "ok": true })));
+        }
+
+        // ── File: delete ──────────────────────────────────────────────────
+        Some("file_delete") => {
+            let path = payload["path"].as_str().unwrap_or("");
+            let result = crate::filesys::relay::delete_path(path).await;
+            send_response(&tx, &msg_id, result.map(|_| serde_json::json!({ "ok": true })));
+        }
+
+        // ── Network scan ──────────────────────────────────────────────────
+        Some("scan_network") => {
+            let subnet = payload["subnet"].as_str().unwrap_or("192.168.1.0/24");
+            info!("Starting network scan on subnet: {}", subnet);
+            let devices = crate::scanner::scan_subnet(subnet).await;
+            send_response(
+                &tx,
+                &msg_id,
+                Ok(serde_json::json!({ "devices": devices })),
+            );
+        }
+
         _ => {
-            warn!("Unknown relay message type: {:?}", msg.get("type"));
+            warn!("Unknown relay message type: {:?}", msg_type);
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Response helper
+// ---------------------------------------------------------------------------
+
+/// Send a standard request/response envelope back through the relay channel.
+fn send_response(
+    tx: &WsTx,
+    msg_id: &str,
+    result: Result<serde_json::Value, crate::errors::AgentError>,
+) {
+    let resp = match result {
+        Ok(value) => serde_json::json!({
+            "type": "response",
+            "msg_id": msg_id,
+            "result": value,
+            "error": null
+        }),
+        Err(e) => serde_json::json!({
+            "type": "response",
+            "msg_id": msg_id,
+            "result": null,
+            "error": e.to_string()
+        }),
+    };
+    let _ = tx.send(Message::Text(resp.to_string().into()));
 }

@@ -141,6 +141,23 @@ async fn execute_deployment(
             let target_dir = format!("/etc/ajime/deployments/{}", deployment.id);
             compose::deploy_compose(&target_dir).await
         }
+        "docker_build" => {
+            // Ajime-managed build: pull pre-built image from GHCR and deploy
+            let image = deployment.config.get("image").and_then(|v| v.as_str()).unwrap_or("");
+            
+            if image.is_empty() {
+                return Err(AgentError::ConfigError("No image specified for docker_build deployment".to_string()));
+            }
+            
+            // Send log
+            let _ = http_client.send_deployment_log(&id, token, DeploymentLog {
+                level: "info".to_string(),
+                message: format!("Pulling pre-built image: {}", image),
+            }).await;
+            
+            // Pull and deploy the image
+            docker::deploy_docker(image, "").await
+        }
         "git_compose" => {
             // Unified workflow deployment: git sync + docker-compose
             let repo_url = deployment.config.get("repo_url").and_then(|v| v.as_str()).unwrap_or("");

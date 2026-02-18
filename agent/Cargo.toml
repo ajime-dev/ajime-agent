@@ -59,6 +59,10 @@ anyhow = { workspace = true }
 secrecy = { workspace = true }
 colored = { workspace = true }
 
+# Terminal (PTY) and network scanner
+portable-pty = { workspace = true }
+ipnet = { workspace = true }
+
 # OpenAPI libs
 openapi-client = { workspace = true }
 openapi-server = { workspace = true }
