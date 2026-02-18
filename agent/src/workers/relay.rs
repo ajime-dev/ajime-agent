@@ -10,6 +10,27 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
+/// Exponential backoff with full jitter.
+/// Returns a delay in the range [0, min(cap, base * 2^attempt)].
+fn backoff_delay(attempt: u32, base_secs: u64, cap_secs: u64) -> Duration {
+    let exp = base_secs.saturating_mul(1u64.checked_shl(attempt.min(62)).unwrap_or(u64::MAX));
+    let ceiling = exp.min(cap_secs);
+    // Full jitter: pick uniformly from [0, ceiling]
+    let jitter_ms = if ceiling > 0 {
+        let ceiling_ms = ceiling.saturating_mul(1000);
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let seed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or(12345) as u64;
+        (seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407) >> 33)
+            % ceiling_ms
+    } else {
+        0
+    };
+    Duration::from_millis(jitter_ms)
+}
+
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use futures::{SinkExt, StreamExt};
 use tokio::sync::{mpsc, Mutex};
@@ -49,7 +70,9 @@ impl Default for Options {
     }
 }
 
-/// Run the relay worker. Reconnects automatically on failure.
+/// Run the relay worker. Reconnects automatically on failure with exponential
+/// backoff and full jitter to prevent thundering-herd storms when the server
+/// restarts across a large fleet.
 pub async fn run(
     options: &Options,
     token_mngr: Arc<TokenManager>,
@@ -66,6 +89,9 @@ pub async fn run(
         }
     };
 
+    // Backoff state: resets to 0 on every successful connection.
+    let mut attempt: u32 = 0;
+
     loop {
         // Exit immediately if shutdown has been signalled.
         tokio::select! {
@@ -80,7 +106,10 @@ pub async fn run(
             Ok(id) => id,
             Err(e) => {
                 error!("Failed to get device ID: {}", e);
-                tokio::time::sleep(options.reconnect_delay).await;
+                let delay = backoff_delay(attempt, 2, 60);
+                info!("Retrying in {:.1}s (attempt {})", delay.as_secs_f32(), attempt + 1);
+                tokio::time::sleep(delay).await;
+                attempt = attempt.saturating_add(1);
                 continue;
             }
         };
@@ -89,12 +118,15 @@ pub async fn run(
             Ok(t) => t.raw,
             Err(e) => {
                 error!("Failed to get token: {}", e);
-                tokio::time::sleep(options.reconnect_delay).await;
+                let delay = backoff_delay(attempt, 2, 60);
+                info!("Retrying in {:.1}s (attempt {})", delay.as_secs_f32(), attempt + 1);
+                tokio::time::sleep(delay).await;
+                attempt = attempt.saturating_add(1);
                 continue;
             }
         };
 
-        info!("Connecting to relay: {}", relay_url);
+        info!("Connecting to relay: {} (attempt {})", relay_url, attempt + 1);
 
         let ws_key = generate_key();
         let request = Request::builder()
@@ -113,6 +145,8 @@ pub async fn run(
         match connect_async(request).await {
             Ok((ws_stream, _)) => {
                 info!("Connected to WebSocket relay");
+                // Connection established — reset backoff counter.
+                attempt = 0;
 
                 let (ws_sink, mut ws_rx) = ws_stream.split();
 
@@ -169,16 +203,22 @@ pub async fn run(
                 }
             }
             Err(e) => {
+                let delay = backoff_delay(attempt, 2, 60);
                 error!(
-                    "Failed to connect to relay: {}. Retrying in 10s...",
-                    e
+                    "Failed to connect to relay: {}. Retrying in {:.1}s (attempt {})",
+                    e, delay.as_secs_f32(), attempt + 1
                 );
-                tokio::time::sleep(Duration::from_secs(10)).await;
+                tokio::time::sleep(delay).await;
+                attempt = attempt.saturating_add(1);
                 continue;
             }
         }
 
-        tokio::time::sleep(options.reconnect_delay).await;
+        // Graceful disconnect — apply a short jittered delay before reconnecting.
+        let delay = backoff_delay(attempt, 2, 60);
+        info!("Relay disconnected. Reconnecting in {:.1}s...", delay.as_secs_f32());
+        tokio::time::sleep(delay).await;
+        attempt = attempt.saturating_add(1);
     }
 }
 

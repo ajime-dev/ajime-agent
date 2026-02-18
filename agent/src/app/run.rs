@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime};
 
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::app::options::{AppOptions, LifecycleOptions};
 use crate::app::state::{ActivityTracker, AppState};
@@ -379,12 +379,24 @@ async fn init_socket_server(
         app_state.activity_tracker.clone(),
     );
 
-    let server_handle = serve(&options.server, Arc::new(server_state), async move {
+    match serve(&options.server, Arc::new(server_state), async move {
         let _ = shutdown_rx.recv().await;
     })
-    .await?;
+    .await
+    {
+        Ok(handle) => {
+            shutdown_manager.with_socket_server_handle(handle)?;
+        }
+        Err(e) => {
+            warn!(
+                "Local HTTP server could not bind to {}:{} ({}). \
+                 Another agent instance may already be running. \
+                 Continuing without local server — relay and all workers are unaffected.",
+                options.server.host, options.server.port, e
+            );
+        }
+    }
 
-    shutdown_manager.with_socket_server_handle(server_handle)?;
     Ok(())
 }
 
