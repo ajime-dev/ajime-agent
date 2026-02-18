@@ -1,7 +1,6 @@
 //! Deployment models
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// A deployment task received from the backend
 #[derive(Debug, Clone, Serialize, Deserialize)]

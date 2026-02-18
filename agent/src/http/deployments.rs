@@ -1,6 +1,6 @@
 //! Deployment API client
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use crate::errors::AgentError;
 use crate::http::client::HttpClient;
 use crate::models::deployment::{Deployment, DeploymentStatusUpdate, DeploymentLog};

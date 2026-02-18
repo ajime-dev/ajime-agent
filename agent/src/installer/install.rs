@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::http::client::HttpClient;
 use crate::logs::{init_logging, LogOptions};

@@ -69,7 +69,7 @@ impl GpioPin {
     }
 
     /// Write pin state (for output pins)
-    pub fn write(&mut self, state: PinState) -> Result<(), AgentError> {
+    pub fn write(&mut self, _state: PinState) -> Result<(), AgentError> {
         if self.mode != PinMode::Output {
             return Err(AgentError::HardwareError(
                 "Cannot write to input pin".to_string(),

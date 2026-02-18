@@ -1,8 +1,9 @@
 //! Docker deployment executor
 
 use std::process::Stdio;
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
-use tracing::{info, error, debug};
+use tracing::{info, debug};
 use crate::errors::AgentError;
 
 pub async fn deploy_docker(image: &str, tag: &str) -> Result<(), AgentError> {
@@ -21,36 +22,32 @@ pub async fn deploy_docker(image: &str, tag: &str) -> Result<(), AgentError> {
         
         // Check if GHCR_TOKEN environment variable is set
         if let Ok(ghcr_token) = std::env::var("GHCR_TOKEN") {
-            let login_status = Command::new("docker")
-                .args(["login", "ghcr.io", "-u", "ajime-agent", "--password-stdin"])
-                .stdin(Stdio::piped())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .and_then(|mut child| {
-                    use std::io::Write;
-                    if let Some(mut stdin) = child.stdin.take() {
-                        stdin.write_all(ghcr_token.as_bytes())?;
-                    }
-                    Ok(child)
-                })
-                .and_then(|child| {
-                    tokio::runtime::Handle::current().block_on(async {
-                        child.wait_with_output().await
-                    })
-                });
-            
-            match login_status {
-                Ok(output) if output.status.success() => {
+            let login_result: Result<bool, std::io::Error> = async {
+                let mut child = Command::new("docker")
+                    .args(["login", "ghcr.io", "-u", "ajime-agent", "--password-stdin"])
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .spawn()?;
+                if let Some(mut stdin) = child.stdin.take() {
+                    stdin.write_all(ghcr_token.as_bytes()).await?;
+                }
+                let output = child.wait_with_output().await?;
+                Ok(output.status.success())
+            }.await;
+
+            match login_result {
+                Ok(true) => {
                     debug!("Successfully authenticated with GHCR");
                 }
-                Ok(_) => {
+                Ok(false) => {
                     debug!("GHCR authentication failed, attempting public pull");
                 }
                 Err(e) => {
                     debug!("Failed to run docker login: {}, attempting public pull", e);
                 }
             }
+
         } else {
             debug!("GHCR_TOKEN not set, attempting public pull");
         }

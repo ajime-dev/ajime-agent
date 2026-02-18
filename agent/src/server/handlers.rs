@@ -10,7 +10,6 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::authn::token_mngr::TokenManagerExt;
 use crate::server::state::ServerState;
 use crate::storage::device::load_device;
 use crate::telemetry::collect_metrics;

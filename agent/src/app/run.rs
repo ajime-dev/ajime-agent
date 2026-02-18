@@ -277,7 +277,7 @@ async fn init_poller_worker(
 async fn init_mqtt_worker(
     options: mqtt::Options,
     app_state: Arc<AppState>,
-    shutdown_manager: &mut ShutdownManager,
+    _shutdown_manager: &mut ShutdownManager,
     mut shutdown_rx: broadcast::Receiver<()>,
 ) -> Result<(), AgentError> {
     info!("Initializing MQTT worker...");

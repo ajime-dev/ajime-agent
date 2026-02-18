@@ -4,7 +4,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::time::Duration;
 
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 use crate::authn::token_mngr::TokenManagerExt;
 

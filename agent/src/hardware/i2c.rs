@@ -27,13 +27,13 @@ impl I2cBus {
     }
 
     /// Read from a device
-    pub fn read(&self, address: u8, register: u8, length: usize) -> Result<Vec<u8>, AgentError> {
+    pub fn read(&self, _address: u8, _register: u8, length: usize) -> Result<Vec<u8>, AgentError> {
         // In production, this would read from the I2C device
         Ok(vec![0u8; length])
     }
 
     /// Write to a device
-    pub fn write(&self, address: u8, register: u8, data: &[u8]) -> Result<(), AgentError> {
+    pub fn write(&self, _address: u8, _register: u8, _data: &[u8]) -> Result<(), AgentError> {
         // In production, this would write to the I2C device
         Ok(())
     }

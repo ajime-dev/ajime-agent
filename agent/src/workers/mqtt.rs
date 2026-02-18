@@ -44,9 +44,9 @@ pub async fn run<S, T, F>(
     options: &Options,
     token_mngr: &T,
     syncer: &Syncer,
-    device_file: &File,
+    _device_file: &File,
     sleep_fn: S,
-    shutdown_signal: Pin<Box<dyn Future<Output = ()> + Send>>,
+    _shutdown_signal: Pin<Box<dyn Future<Output = ()> + Send>>,
 ) where
     S: Fn(Duration) -> F,
     F: Future<Output = ()>,
@@ -173,7 +173,7 @@ async fn handle_command(command: &MqttCommand, syncer: &Syncer) {
     }
 }
 
-async fn handle_workflow_control(workflow_id: &str, command: &MqttCommand, syncer: &Syncer) {
+async fn handle_workflow_control(workflow_id: &str, command: &MqttCommand, _syncer: &Syncer) {
     info!("Handling workflow control for {}: {}", workflow_id, command.command);
 
     match command.command.as_str() {

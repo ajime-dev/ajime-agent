@@ -2,7 +2,7 @@
 
 use std::path::Path;
 use tokio::process::Command;
-use tracing::{info, error, debug};
+use tracing::{info, debug};
 use crate::errors::AgentError;
 
 /// Sync a git repository (clone or pull)
@@ -12,13 +12,6 @@ pub async fn sync_repository(
     target_dir: &str
 ) -> Result<(), AgentError> {
     info!("Syncing Git repository: {} (branch: {}) to {}", repo_url, branch, target_dir);
-
-    // #region agent log
-    let _ = std::fs::OpenOptions::new().create(true).append(true).open(r"c:\Users\shach\Desktop\Projects\Ajime\.cursor\debug.log").and_then(|mut f| {
-        use std::io::Write;
-        writeln!(f, r#"{{"location":"git.rs:14","message":"Git sync started","data":{{"repo_url":"{}","branch":"{}","target_dir":"{}","exists":{}}},"timestamp":{},"hypothesisId":"H5"}}"#, repo_url, branch, target_dir, Path::new(target_dir).exists(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
-    });
-    // #endregion
 
     let path = Path::new(target_dir);
 
@@ -33,12 +26,6 @@ pub async fn sync_repository(
             .map_err(|e| AgentError::DeployError(format!("Failed to run git pull: {}", e)))?;
         
         if !status.success() {
-            // #region agent log
-            let _ = std::fs::OpenOptions::new().create(true).append(true).open(r"c:\Users\shach\Desktop\Projects\Ajime\.cursor\debug.log").and_then(|mut f| {
-                use std::io::Write;
-                writeln!(f, r#"{{"location":"git.rs:29","message":"Git pull failed","data":{{"target_dir":"{}"}},"timestamp":{},"hypothesisId":"H5"}}"#, target_dir, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
-            });
-            // #endregion
             return Err(AgentError::DeployError("Git pull failed".to_string()));
         }
     } else {
@@ -50,23 +37,11 @@ pub async fn sync_repository(
             .map_err(|e| AgentError::DeployError(format!("Failed to run git clone: {}", e)))?;
         
         if !status.success() {
-            // #region agent log
-            let _ = std::fs::OpenOptions::new().create(true).append(true).open(r"c:\Users\shach\Desktop\Projects\Ajime\.cursor\debug.log").and_then(|mut f| {
-                use std::io::Write;
-                writeln!(f, r#"{{"location":"git.rs:40","message":"Git clone failed","data":{{"repo_url":"{}","target_dir":"{}"}},"timestamp":{},"hypothesisId":"H5"}}"#, repo_url, target_dir, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
-            });
-            // #endregion
             return Err(AgentError::DeployError("Git clone failed".to_string()));
         }
     }
 
     info!("Successfully synced Git repository");
-    // #region agent log
-    let _ = std::fs::OpenOptions::new().create(true).append(true).open(r"c:\Users\shach\Desktop\Projects\Ajime\.cursor\debug.log").and_then(|mut f| {
-        use std::io::Write;
-        writeln!(f, r#"{{"location":"git.rs:44","message":"Git sync completed","data":{{"target_dir":"{}"}},"timestamp":{},"hypothesisId":"H5"}}"#, target_dir, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis())
-    });
-    // #endregion
     Ok(())
 }
 

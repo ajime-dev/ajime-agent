@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 use crate::authn::token_mngr::{TokenManager, TokenManagerExt};
 use crate::cache::workflow::WorkflowCache;

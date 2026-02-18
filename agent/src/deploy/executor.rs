@@ -3,13 +3,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use tokio::sync::{mpsc, RwLock};
-use tracing::{debug, error, info, warn};
+use tokio::sync::RwLock;
+use tracing::{debug, error, info};
 
 use crate::deploy::fsm::{DeploymentEvent, DeploymentFsm, DeploymentState};
 use crate::deploy::node_runner::{NodeRunner, NodeRunnerFactory};
 use crate::errors::AgentError;
-use crate::models::workflow::{ExecutionState, Node, Workflow, WorkflowExecution};
+use crate::models::workflow::{ExecutionState, Workflow, WorkflowExecution};
 
 /// Workflow executor
 pub struct WorkflowExecutor {
