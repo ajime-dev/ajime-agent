@@ -235,6 +235,7 @@ Wants=network-online.target
 Type=simple
 User=root
 Group=root
+ExecStartPre=/usr/bin/pkill -x ajigent 2>/dev/null; true
 ExecStart=/usr/local/bin/ajigent
 Restart=always
 RestartSec=10
