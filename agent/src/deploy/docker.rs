@@ -6,7 +6,7 @@ use tokio::process::Command;
 use tracing::{info, debug};
 use crate::errors::AgentError;
 
-pub async fn deploy_docker(image: &str, tag: &str) -> Result<(), AgentError> {
+pub async fn deploy_docker(image: &str, tag: &str, registry_token: Option<String>) -> Result<(), AgentError> {
     // Handle case where image already includes tag (e.g., from Ajime builder)
     let full_image = if image.contains(':') || tag.is_empty() {
         image.to_string()
@@ -19,9 +19,13 @@ pub async fn deploy_docker(image: &str, tag: &str) -> Result<(), AgentError> {
     // 1. Authenticate with GHCR if this is a ghcr.io image
     if full_image.starts_with("ghcr.io/") {
         debug!("Authenticating with GitHub Container Registry...");
-        
-        // Check if GHCR_TOKEN environment variable is set
-        if let Ok(ghcr_token) = std::env::var("GHCR_TOKEN") {
+
+        // Use token from deployment config first, fall back to environment variable
+        let token_opt = registry_token
+            .filter(|t| !t.is_empty())
+            .or_else(|| std::env::var("GHCR_TOKEN").ok());
+
+        if let Some(ghcr_token) = token_opt {
             let login_result: Result<bool, std::io::Error> = async {
                 let mut child = Command::new("docker")
                     .args(["login", "ghcr.io", "-u", "ajime-agent", "--password-stdin"])

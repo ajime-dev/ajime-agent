@@ -127,7 +127,8 @@ async fn execute_deployment(
         "docker" => {
             let image = deployment.config.get("image").and_then(|v| v.as_str()).unwrap_or("");
             let tag = deployment.config.get("tag").and_then(|v| v.as_str()).unwrap_or("latest");
-            docker::deploy_docker(image, tag).await
+            let registry_token = deployment.config.get("registry_token").and_then(|v| v.as_str()).map(|s| s.to_string());
+            docker::deploy_docker(image, tag, registry_token).await
         }
         "git" => {
             let repo_url = deployment.config.get("repo_url").and_then(|v| v.as_str()).unwrap_or("");
@@ -144,19 +145,19 @@ async fn execute_deployment(
         "docker_build" => {
             // Ajime-managed build: pull pre-built image from GHCR and deploy
             let image = deployment.config.get("image").and_then(|v| v.as_str()).unwrap_or("");
-            
+
             if image.is_empty() {
                 return Err(AgentError::ConfigError("No image specified for docker_build deployment".to_string()));
             }
-            
+
             // Send log
             let _ = http_client.send_deployment_log(&id, token, DeploymentLog {
                 level: "info".to_string(),
                 message: format!("Pulling pre-built image: {}", image),
             }).await;
-            
-            // Pull and deploy the image
-            docker::deploy_docker(image, "").await
+
+            let registry_token = deployment.config.get("registry_token").and_then(|v| v.as_str()).map(|s| s.to_string());
+            docker::deploy_docker(image, "", registry_token).await
         }
         "git_compose" => {
             // Unified workflow deployment: git sync + docker-compose
