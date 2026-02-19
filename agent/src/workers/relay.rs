@@ -396,6 +396,26 @@ async fn handle_message(text: &str, tx: WsTx, sessions: Sessions) {
             );
         }
 
+        // ── Docker: list locally pulled images ───────────────────────────────
+        Some("docker_images") => {
+            let output = tokio::process::Command::new("docker")
+                .args(["images", "--format", "{{.Repository}}:{{.Tag}}"])
+                .output()
+                .await;
+            let result = output
+                .map_err(crate::errors::AgentError::IoError)
+                .map(|out| {
+                    let text = String::from_utf8_lossy(&out.stdout);
+                    let images: Vec<serde_json::Value> = text
+                        .lines()
+                        .filter(|l| !l.is_empty() && !l.contains("<none>"))
+                        .map(|l| serde_json::json!(l))
+                        .collect();
+                    serde_json::json!({ "images": images })
+                });
+            send_response(&tx, &msg_id, result);
+        }
+
         _ => {
             warn!("Unknown relay message type: {:?}", msg_type);
         }
