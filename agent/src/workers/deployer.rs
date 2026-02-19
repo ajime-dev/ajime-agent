@@ -128,7 +128,8 @@ async fn execute_deployment(
             let image = deployment.config.get("image").and_then(|v| v.as_str()).unwrap_or("");
             let tag = deployment.config.get("tag").and_then(|v| v.as_str()).unwrap_or("latest");
             let registry_token = deployment.config.get("registry_token").and_then(|v| v.as_str()).map(|s| s.to_string());
-            docker::deploy_docker(image, tag, registry_token).await
+            let registry_username = deployment.config.get("registry_username").and_then(|v| v.as_str()).map(|s| s.to_string());
+            docker::deploy_docker(image, tag, registry_token, registry_username).await
         }
         "git" => {
             let repo_url = deployment.config.get("repo_url").and_then(|v| v.as_str()).unwrap_or("");
@@ -157,7 +158,8 @@ async fn execute_deployment(
             }).await;
 
             let registry_token = deployment.config.get("registry_token").and_then(|v| v.as_str()).map(|s| s.to_string());
-            docker::deploy_docker(image, "", registry_token).await
+            let registry_username = deployment.config.get("registry_username").and_then(|v| v.as_str()).map(|s| s.to_string());
+            docker::deploy_docker(image, "", registry_token, registry_username).await
         }
         "git_compose" => {
             // Unified workflow deployment: git sync + docker-compose

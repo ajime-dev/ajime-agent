@@ -6,29 +6,43 @@ use tokio::process::Command;
 use tracing::{info, debug};
 use crate::errors::AgentError;
 
-pub async fn deploy_docker(image: &str, tag: &str, registry_token: Option<String>) -> Result<(), AgentError> {
+pub async fn deploy_docker(
+    image: &str,
+    tag: &str,
+    registry_token: Option<String>,
+    registry_username: Option<String>,
+) -> Result<(), AgentError> {
     // Handle case where image already includes tag (e.g., from Ajime builder)
     let full_image = if image.contains(':') || tag.is_empty() {
         image.to_string()
     } else {
         format!("{}:{}", image, tag)
     };
-    
+
     info!("Deploying Docker image: {}", full_image);
 
     // 1. Authenticate with GHCR if this is a ghcr.io image
     if full_image.starts_with("ghcr.io/") {
         debug!("Authenticating with GitHub Container Registry...");
 
-        // Use token from deployment config first, fall back to environment variable
+        // Token: deployment config first, fall back to env var
         let token_opt = registry_token
             .filter(|t| !t.is_empty())
             .or_else(|| std::env::var("GHCR_TOKEN").ok());
 
         if let Some(ghcr_token) = token_opt {
+            // Username: deployment config first, fall back to GHCR_USERNAME env var,
+            // then "x-access-token" (GHCR accepts this as a token-based auth alias).
+            let env_username = std::env::var("GHCR_USERNAME").unwrap_or_default();
+            let username = registry_username
+                .as_deref()
+                .filter(|u| !u.is_empty())
+                .or_else(|| if !env_username.is_empty() { Some(env_username.as_str()) } else { None })
+                .unwrap_or("x-access-token");
+
             let login_result: Result<bool, std::io::Error> = async {
                 let mut child = Command::new("docker")
-                    .args(["login", "ghcr.io", "-u", "ajime-agent", "--password-stdin"])
+                    .args(["login", "ghcr.io", "-u", username, "--password-stdin"])
                     .stdin(Stdio::piped())
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
@@ -41,17 +55,10 @@ pub async fn deploy_docker(image: &str, tag: &str, registry_token: Option<String
             }.await;
 
             match login_result {
-                Ok(true) => {
-                    debug!("Successfully authenticated with GHCR");
-                }
-                Ok(false) => {
-                    debug!("GHCR authentication failed, attempting public pull");
-                }
-                Err(e) => {
-                    debug!("Failed to run docker login: {}, attempting public pull", e);
-                }
+                Ok(true) => debug!("Successfully authenticated with GHCR"),
+                Ok(false) => debug!("GHCR authentication failed, attempting public pull"),
+                Err(e) => debug!("Failed to run docker login: {}, attempting public pull", e),
             }
-
         } else {
             debug!("GHCR_TOKEN not set, attempting public pull");
         }
@@ -69,7 +76,7 @@ pub async fn deploy_docker(image: &str, tag: &str, registry_token: Option<String
         return Err(AgentError::DeployError(format!("Docker pull failed for {}", full_image)));
     }
 
-    // 3. Stop existing container if any (simplified: using image name as container name)
+    // 3. Stop existing container if any (using image name as container name)
     let container_name = full_image
         .split('/')
         .last()
@@ -77,17 +84,10 @@ pub async fn deploy_docker(image: &str, tag: &str, registry_token: Option<String
         .split(':')
         .next()
         .unwrap_or("container");
-    
+
     debug!("Stopping existing container: {}", container_name);
-    let _ = Command::new("docker")
-        .args(["stop", container_name])
-        .status()
-        .await;
-    
-    let _ = Command::new("docker")
-        .args(["rm", container_name])
-        .status()
-        .await;
+    let _ = Command::new("docker").args(["stop", container_name]).status().await;
+    let _ = Command::new("docker").args(["rm", container_name]).status().await;
 
     // 4. Run new container
     debug!("Running new container: {}", container_name);
