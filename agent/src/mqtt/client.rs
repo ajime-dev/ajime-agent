@@ -53,24 +53,33 @@ impl MqttClient {
         options.set_credentials(device_id, token);
 
         if address.use_tls {
-            use native_tls::TlsConnector;
-            use rumqttc::Transport;
+            use rumqttc::{TlsConfiguration, Transport};
+            use rustls::ClientConfig;
+            use std::sync::Arc;
 
-            let mut builder = TlsConnector::builder();
+            let mut root_cert_store = rustls::RootCertStore::empty();
+            root_cert_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
             if let Some(ref ca_path) = address.ca_cert_path {
                 let ca_pem = std::fs::read(ca_path)
                     .map_err(|e| AgentError::MqttError(format!("Failed to read CA cert {ca_path}: {e}")))?;
-                let cert = native_tls::Certificate::from_pem(&ca_pem)
-                    .map_err(|e| AgentError::MqttError(format!("Invalid CA cert: {e}")))?;
-                builder.add_root_certificate(cert);
+                let mut cursor = std::io::Cursor::new(ca_pem);
+                for cert in rustls_pemfile::certs(&mut cursor) {
+                    let cert = cert
+                        .map_err(|e| AgentError::MqttError(format!("Invalid CA cert: {e}")))?;
+                    root_cert_store
+                        .add(cert)
+                        .map_err(|e| AgentError::MqttError(format!("Failed to add CA cert: {e}")))?;
+                }
             }
 
-            let connector = builder
-                .build()
-                .map_err(|e| AgentError::MqttError(format!("TLS setup failed: {e}")))?;
+            let client_config = ClientConfig::builder()
+                .with_root_certificates(root_cert_store)
+                .with_no_client_auth();
 
-            options.set_transport(Transport::tls_with_config(connector.into()));
+            options.set_transport(Transport::tls_with_config(TlsConfiguration::Rustls(
+                Arc::new(client_config),
+            )));
         }
 
         let (client, eventloop) = AsyncClient::new(options, 10);
