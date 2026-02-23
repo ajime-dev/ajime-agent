@@ -51,7 +51,7 @@ impl Device {
             metadata: serde_json::Value::Null,
             activated_at: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .unwrap_or_default()
                 .as_secs(),
             last_sync_at: None,
         }
@@ -92,5 +92,6 @@ pub async fn load_device(device_file: &File) -> Result<Device, AgentError> {
 
 /// Save device to file
 pub async fn save_device(device_file: &File, device: &Device) -> Result<(), AgentError> {
-    device_file.write_json(device).await
+    device_file.write_json(device).await?;
+    device_file.set_permissions_600().await
 }

@@ -5,6 +5,20 @@ use tokio::process::Command;
 use tracing::{info, debug};
 use crate::errors::AgentError;
 
+/// Validate that a shell command string does not contain metacharacters that could
+/// be used for injection.  Commands come from the trusted backend, but this is an
+/// additional defence-in-depth check on the device side.
+fn validate_shell_command(cmd: &str, field: &str) -> Result<(), AgentError> {
+    let dangerous: &[char] = &[';', '&', '|', '`', '$', '>', '<', '\n', '\r'];
+    if let Some(c) = dangerous.iter().find(|&&c| cmd.contains(c)) {
+        return Err(AgentError::ValidationError(format!(
+            "{} contains disallowed shell character: {:?}",
+            field, c
+        )));
+    }
+    Ok(())
+}
+
 /// Sync a git repository (clone or pull)
 pub async fn sync_repository(
     repo_url: &str,
@@ -84,14 +98,15 @@ pub async fn deploy_git(
 
     // 2. Install dependencies
     if !install_cmd.is_empty() {
-        info!("Running install command: {}", install_cmd);
+        validate_shell_command(install_cmd, "install_cmd")?;
+        info!("Running install command");
         let status = Command::new("bash")
             .current_dir(path)
             .args(["-c", install_cmd])
             .status()
             .await
             .map_err(|e| AgentError::DeployError(format!("Failed to run install command: {}", e)))?;
-        
+
         if !status.success() {
             return Err(AgentError::DeployError("Install command failed".to_string()));
         }
@@ -99,7 +114,8 @@ pub async fn deploy_git(
 
     // 3. Run application (simplified: non-blocking or managed process would be better)
     if !run_cmd.is_empty() {
-        info!("Starting application: {}", run_cmd);
+        validate_shell_command(run_cmd, "run_cmd")?;
+        info!("Starting application");
         // Note: In production, this should be managed by a process supervisor
         let cmd = format!("nohup {} > app.log 2>&1 &", run_cmd);
         let _ = Command::new("bash")

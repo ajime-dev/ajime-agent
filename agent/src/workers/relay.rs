@@ -21,8 +21,8 @@ fn backoff_delay(attempt: u32, base_secs: u64, cap_secs: u64) -> Duration {
         use std::time::{SystemTime, UNIX_EPOCH};
         let seed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|d| d.subsec_nanos())
-            .unwrap_or(12345) as u64;
+            .unwrap_or_default()
+            .subsec_nanos() as u64;
         (seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407) >> 33)
             % ceiling_ms
     } else {
@@ -140,7 +140,7 @@ pub async fn run(
             .header("X-Device-ID", &device_id)
             .header("X-Device-Secret", &token)
             .body(())
-            .unwrap();
+            .expect("hardcoded HTTP request builder fields are always valid");
 
         match connect_async(request).await {
             Ok((ws_stream, _)) => {

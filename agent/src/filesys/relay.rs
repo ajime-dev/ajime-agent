@@ -3,6 +3,7 @@
 //! All file content is Base64-encoded so it can be safely embedded in JSON
 //! messages over the WebSocket relay.
 
+use std::path::Path;
 use std::time::UNIX_EPOCH;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -10,6 +11,23 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 
 use crate::errors::AgentError;
+
+/// Reject paths that contain directory traversal sequences.
+///
+/// This is a defence-in-depth guard: the server already validates paths before
+/// relaying commands, but the agent enforces the same rule independently.
+fn validate_path(path: &str) -> Result<(), AgentError> {
+    let normalized = Path::new(path);
+    for component in normalized.components() {
+        use std::path::Component;
+        if matches!(component, Component::ParentDir) {
+            return Err(AgentError::ValidationError(
+                "Path traversal is not allowed".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
 
 /// Metadata for a single file or directory entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,6 +44,7 @@ pub struct FileEntry {
 ///
 /// Entries are sorted: directories first, then files, both alphabetically.
 pub async fn list_directory(path: &str) -> Result<Vec<FileEntry>, AgentError> {
+    validate_path(path)?;
     let mut read_dir = fs::read_dir(path).await?;
     let mut entries = Vec::new();
 
@@ -59,12 +78,14 @@ pub async fn list_directory(path: &str) -> Result<Vec<FileEntry>, AgentError> {
 
 /// Read a file and return its contents as a Base64-encoded string.
 pub async fn read_file(path: &str) -> Result<String, AgentError> {
+    validate_path(path)?;
     let bytes = fs::read(path).await?;
     Ok(BASE64.encode(&bytes))
 }
 
 /// Write Base64-encoded `content` to `path`, creating parent directories as needed.
 pub async fn write_file(path: &str, content_b64: &str) -> Result<(), AgentError> {
+    validate_path(path)?;
     let bytes = BASE64
         .decode(content_b64)
         .map_err(|e| AgentError::ValidationError(format!("Invalid base64: {e}")))?;
@@ -79,6 +100,7 @@ pub async fn write_file(path: &str, content_b64: &str) -> Result<(), AgentError>
 
 /// Delete a file or directory (recursive for directories).
 pub async fn delete_path(path: &str) -> Result<(), AgentError> {
+    validate_path(path)?;
     let metadata = fs::metadata(path).await?;
     if metadata.is_dir() {
         fs::remove_dir_all(path).await?;

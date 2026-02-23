@@ -30,19 +30,19 @@ impl WorkflowCache {
 
     /// Get a workflow from cache
     pub fn get(&self, workflow_id: &str) -> Option<WorkflowCacheEntry> {
-        let entries = self.entries.read().unwrap();
+        let entries = self.entries.read().unwrap_or_else(|e| e.into_inner());
         entries.get(workflow_id).cloned()
     }
 
     /// Get a workflow by digest
     pub fn get_by_digest(&self, digest: &str) -> Option<WorkflowCacheEntry> {
-        let entries = self.entries.read().unwrap();
+        let entries = self.entries.read().unwrap_or_else(|e| e.into_inner());
         entries.values().find(|e| e.digest == digest).cloned()
     }
 
     /// Insert a workflow into cache
     pub fn insert(&self, workflow: Workflow, digest: String) {
-        let mut entries = self.entries.write().unwrap();
+        let mut entries = self.entries.write().unwrap_or_else(|e| e.into_inner());
 
         // Evict oldest if at capacity
         if entries.len() as u64 >= self.capacity {
@@ -60,7 +60,7 @@ impl WorkflowCache {
             digest,
             cached_at: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .unwrap_or_default()
                 .as_secs(),
         };
 
@@ -69,25 +69,25 @@ impl WorkflowCache {
 
     /// Remove a workflow from cache
     pub fn remove(&self, workflow_id: &str) -> Option<WorkflowCacheEntry> {
-        let mut entries = self.entries.write().unwrap();
+        let mut entries = self.entries.write().unwrap_or_else(|e| e.into_inner());
         entries.remove(workflow_id)
     }
 
     /// Clear the cache
     pub fn clear(&self) {
-        let mut entries = self.entries.write().unwrap();
+        let mut entries = self.entries.write().unwrap_or_else(|e| e.into_inner());
         entries.clear();
     }
 
     /// Get all cached workflow IDs
     pub fn keys(&self) -> Vec<String> {
-        let entries = self.entries.read().unwrap();
+        let entries = self.entries.read().unwrap_or_else(|e| e.into_inner());
         entries.keys().cloned().collect()
     }
 
     /// Get all cached digests
     pub fn digests(&self) -> Vec<(String, String)> {
-        let entries = self.entries.read().unwrap();
+        let entries = self.entries.read().unwrap_or_else(|e| e.into_inner());
         entries
             .iter()
             .map(|(id, e)| (id.clone(), e.digest.clone()))
@@ -96,7 +96,7 @@ impl WorkflowCache {
 
     /// Get cache size
     pub fn len(&self) -> usize {
-        let entries = self.entries.read().unwrap();
+        let entries = self.entries.read().unwrap_or_else(|e| e.into_inner());
         entries.len()
     }
 

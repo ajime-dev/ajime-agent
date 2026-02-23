@@ -12,6 +12,9 @@ pub struct MqttAddress {
     pub host: String,
     pub port: u16,
     pub use_tls: bool,
+    /// Optional path to a PEM-encoded CA certificate for broker verification.
+    /// When `None` and `use_tls` is `true`, the system certificate store is used.
+    pub ca_cert_path: Option<String>,
 }
 
 impl Default for MqttAddress {
@@ -20,6 +23,7 @@ impl Default for MqttAddress {
             host: "".to_string(),
             port: 8883,
             use_tls: true,
+            ca_cert_path: None,
         }
     }
 }
@@ -48,10 +52,26 @@ impl MqttClient {
         options.set_keep_alive(std::time::Duration::from_secs(30));
         options.set_credentials(device_id, token);
 
-        // Note: TLS configuration would be added here in production
-        // if address.use_tls {
-        //     options.set_transport(Transport::tls(...));
-        // }
+        if address.use_tls {
+            use native_tls::TlsConnector;
+            use rumqttc::Transport;
+
+            let mut builder = TlsConnector::builder();
+
+            if let Some(ref ca_path) = address.ca_cert_path {
+                let ca_pem = std::fs::read(ca_path)
+                    .map_err(|e| AgentError::MqttError(format!("Failed to read CA cert {ca_path}: {e}")))?;
+                let cert = native_tls::Certificate::from_pem(&ca_pem)
+                    .map_err(|e| AgentError::MqttError(format!("Invalid CA cert: {e}")))?;
+                builder.add_root_certificate(cert);
+            }
+
+            let connector = builder
+                .build()
+                .map_err(|e| AgentError::MqttError(format!("TLS setup failed: {e}")))?;
+
+            options.set_transport(Transport::tls_with_config(connector.into()));
+        }
 
         let (client, eventloop) = AsyncClient::new(options, 10);
 

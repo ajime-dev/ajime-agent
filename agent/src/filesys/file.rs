@@ -93,6 +93,21 @@ impl File {
         Ok(())
     }
 
+    /// Set file permissions to owner-read/write only (0o600) on Unix.
+    ///
+    /// A no-op on non-Unix platforms.
+    pub async fn set_permissions_600(&self) -> Result<(), AgentError> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let meta = fs::metadata(&self.path).await?;
+            let mut perms = meta.permissions();
+            perms.set_mode(0o600);
+            fs::set_permissions(&self.path, perms).await?;
+        }
+        Ok(())
+    }
+
     /// Atomic write using a temporary file
     pub async fn write_atomic(&self, contents: &[u8]) -> Result<(), AgentError> {
         let temp_path = self.path.with_extension("tmp");
