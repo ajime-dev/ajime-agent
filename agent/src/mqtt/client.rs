@@ -58,18 +58,17 @@ impl MqttClient {
             use std::sync::Arc;
 
             let mut root_cert_store = rustls::RootCertStore::empty();
-            root_cert_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
             if let Some(ref ca_path) = address.ca_cert_path {
                 let ca_pem = std::fs::read(ca_path)
                     .map_err(|e| AgentError::MqttError(format!("Failed to read CA cert {ca_path}: {e}")))?;
                 let mut cursor = std::io::Cursor::new(ca_pem);
-                for cert in rustls_pemfile::certs(&mut cursor) {
-                    let cert = cert
-                        .map_err(|e| AgentError::MqttError(format!("Invalid CA cert: {e}")))?;
-                    root_cert_store
-                        .add(cert)
-                        .map_err(|e| AgentError::MqttError(format!("Failed to add CA cert: {e}")))?;
+                for cert in rustls_pemfile::certs(&mut cursor).flatten() {
+                    let _ = root_cert_store.add(cert);
+                }
+            } else {
+                for cert in rustls_native_certs::load_native_certs().unwrap_or_default() {
+                    let _ = root_cert_store.add(cert);
                 }
             }
 

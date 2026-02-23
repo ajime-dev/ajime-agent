@@ -102,6 +102,11 @@ pub struct MqttBrokerSettings {
     /// Use TLS
     #[serde(default = "default_true")]
     pub tls: bool,
+
+    /// Optional path to a PEM-encoded CA certificate for broker TLS verification.
+    /// When absent, the system certificate store is used.
+    #[serde(default)]
+    pub ca_cert_path: Option<String>,
 }
 
 fn default_mqtt_host() -> String {
@@ -118,6 +123,7 @@ impl Default for MqttBrokerSettings {
             host: default_mqtt_host(),
             port: default_mqtt_port(),
             tls: true,
+            ca_cert_path: None,
         }
     }
 }

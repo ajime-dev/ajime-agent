@@ -100,6 +100,7 @@ async fn main() {
                 host: settings.mqtt_broker.host.clone(),
                 port: settings.mqtt_broker.port,
                 use_tls: settings.mqtt_broker.tls,
+                ca_cert_path: settings.mqtt_broker.ca_cert_path.clone(),
             },
             ..Default::default()
         },

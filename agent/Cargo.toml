@@ -32,8 +32,8 @@ tokio-tungstenite = { workspace = true }
 # MQTT
 rumqttc = { workspace = true }
 rustls = { workspace = true }
+rustls-native-certs = { workspace = true }
 rustls-pemfile = { workspace = true }
-webpki-roots = { workspace = true }
 
 # Serialization
 serde = { workspace = true }
